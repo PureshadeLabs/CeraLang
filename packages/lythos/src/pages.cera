@@ -1,0 +1,54 @@
+## Pages of memory. The heap grows by itself; use this for memory at an address you choose.
+import std.sys
+import lythos
+
+## The size of a page.
+pub page_size :: fn() -> i64 do
+  4096
+end
+
+## Map `count` fresh zeroed pages starting at `addr` (4 KiB aligned, at or above 1 GiB, not
+## already mapped). Needs a Memory capability with WRITE. Returns the address.
+pub map :: fn(addr: i64, count: i64) -> Result<i64, Error> do
+  if addr % 4096 != 0 do
+    Err(Error{message: "the address must be 4 KiB aligned"})
+  else
+    map_from(addr, count, 0)
+  end
+end
+
+## Give pages back to the address space (the frames are not freed by the kernel).
+pub unmap :: fn(addr: i64, count: i64) -> Result<(), Error> do
+  if addr % 4096 != 0 do
+    Err(Error{message: "the address must be 4 KiB aligned"})
+  else
+    unmap_from(addr, count, 0)
+  end
+end
+
+map_from :: fn(addr: i64, count: i64, i: i64) -> Result<i64, Error> do
+  if i >= count do
+    Ok(addr)
+  else
+    r = unsafe do sys.syscall3(2, addr + i * 4096, 0, 3) end
+    match lythos.check_unit(r) do
+      Ok(_) -> map_from(addr, count, i + 1)
+      Err(e) -> do
+        _ = unmap_from(addr, i, 0)
+        Err(e)
+      end
+    end
+  end
+end
+
+unmap_from :: fn(addr: i64, count: i64, i: i64) -> Result<(), Error> do
+  if i >= count do
+    Ok(())
+  else
+    r = unsafe do sys.syscall1(3, addr + i * 4096) end
+    match lythos.check_unit(r) do
+      Ok(_) -> unmap_from(addr, count, i + 1)
+      Err(e) -> Err(e)
+    end
+  end
+end

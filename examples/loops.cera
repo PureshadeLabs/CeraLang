@@ -1,0 +1,54 @@
+import std.io
+import std.list
+
+sum_to :: fn(n: i64) -> i64 do
+  var total = 0
+  var i = 1
+  while i <= n do
+    total := total + i
+    i := i + 1
+  end
+  total
+end
+
+evens :: fn(xs: [i64]) -> i64 do
+  var acc = 0
+  for x in xs do
+    if x % 2 != 0 do
+      continue
+    end
+    if x > 20 do
+      break
+    end
+    acc := acc + x
+  end
+  acc
+end
+
+nested :: fn() -> i64 do
+  var count = 0
+  for a in list.range(0, 5) do
+    var b = 0
+    while true do
+      b := b + 1
+      if b > a do
+        break
+      end
+      count := count + 1
+    end
+  end
+  count
+end
+
+main :: fn() do
+  io.println(sum_to(100))
+  io.println(evens(list.range(0, 100)))
+  io.println(nested())
+  var words = ["a", "b", "c"]
+  var n = 0
+  for w in words do
+    io.println(w)
+    n := n + 1
+  end
+  io.println(n)
+end

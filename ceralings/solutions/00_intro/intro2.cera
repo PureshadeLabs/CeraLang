@@ -1,0 +1,9 @@
+# intro2: A function needs a `do`
+# Book: chapter 2
+# expect: Hello, world!
+
+import std.io
+
+main :: fn() do
+  "Hello, world!" |> io.println
+end

@@ -1,0 +1,10 @@
+# data2: List patterns
+# Book: chapter 6
+
+# Add up a list by taking off its first element.
+sum_list :: fn(xs: [i32]) -> i32 do
+  match xs do
+    [] -> 0
+    [x | rest] -> x + sum_list(rest)
+  end
+end

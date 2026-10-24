@@ -1,0 +1,10 @@
+[package]
+name = "cera-sema"
+description = "Name resolution, type inference and exhaustiveness checking for Cera"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }

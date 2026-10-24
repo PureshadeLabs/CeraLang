@@ -1,0 +1,4 @@
+main :: fn() do
+  x = (1 + 2
+  io.println(x)
+end

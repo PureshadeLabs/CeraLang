@@ -1,0 +1,28 @@
+# Stub signatures for std.list (also reachable as `List.name`).
+# The first nine names are also in the prelude.
+
+map :: fn<A, B>(xs: [A], f: fn(A) -> B) -> [B]
+filter :: fn<A>(xs: [A], keep: fn(A) -> bool) -> [A]
+fold :: fn<A, B>(xs: [A], init: B, f: fn(B, A) -> B) -> B
+sum :: fn<T: Add>(xs: [T]) -> T
+length :: fn<T>(xs: [T]) -> usize
+reverse :: fn<T>(xs: [T]) -> [T]
+append :: fn<T>(front: [T], back: [T]) -> [T]
+head :: fn<T>(xs: [T]) -> Option<T>
+tail :: fn<T>(xs: [T]) -> Option<[T]>
+
+get :: fn<T>(xs: [T], index: usize) -> Option<T>
+last :: fn<T>(xs: [T]) -> Option<T>
+is_empty :: fn<T>(xs: [T]) -> bool
+take :: fn<T>(xs: [T], n: usize) -> [T]
+drop :: fn<T>(xs: [T], n: usize) -> [T]
+concat :: fn<T>(lists: [[T]]) -> [T]
+flat_map :: fn<A, B>(xs: [A], f: fn(A) -> [B]) -> [B]
+any :: fn<T>(xs: [T], test: fn(T) -> bool) -> bool
+all :: fn<T>(xs: [T], test: fn(T) -> bool) -> bool
+find :: fn<T>(xs: [T], test: fn(T) -> bool) -> Option<T>
+zip :: fn<A, B>(xs: [A], ys: [B]) -> [(A, B)]
+range :: fn(low: i64, high: i64) -> [i64]
+contains :: fn<T>(xs: [T], x: T) -> bool
+sort :: fn<T: Ord>(xs: [T]) -> [T]
+sort_by :: fn<T>(xs: [T], compare: fn(T, T) -> Ordering) -> [T]

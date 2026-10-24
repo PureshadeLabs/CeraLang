@@ -1,0 +1,14 @@
+# pipes1: Finish the pipeline
+# Book: chapter 9
+# I AM NOT DONE
+
+# Keep the even numbers, square them, then add them up.
+main :: fn() do
+  total = [1, 2, 3, 4]
+    |> filter(fn(n) -> n % 2 == 0 end)
+    |> map(fn(n) -> n * n end)
+    |>
+end
+
+# HINT
+# The last `|>` has nothing on its right. A bare function name is enough: `|> sum`.

@@ -1,0 +1,41 @@
+import std.io
+
+Shape :: type
+  | Circle(r: f64)
+  | Rect(w: f64, h: f64)
+end
+
+Area :: trait
+  area :: fn(self) -> f64
+end
+
+impl Area for Shape do
+  area :: fn(s: Shape) -> f64 do
+    match s do
+      Circle(r)  -> 3.14159 * r * r
+      Rect(w, h) -> w * h
+    end
+  end
+end
+
+impl Show for Shape do
+  show :: fn(s: Shape) -> String do
+    match s do
+      Circle(_)  -> "circle"
+      Rect(_, _) -> "rectangle"
+    end
+  end
+end
+
+total :: fn<T: Area>(xs: [T]) -> f64 do
+  match xs do
+    [] -> 0.0
+    [x | rest] -> area(x) + total(rest)
+  end
+end
+
+main :: fn() do
+  shapes = [Circle(1.0), Rect(2.0, 3.0)]
+  io.println(shapes)
+  io.println(total(shapes))
+end

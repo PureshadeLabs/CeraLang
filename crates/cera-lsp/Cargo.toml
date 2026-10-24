@@ -1,0 +1,17 @@
+[package]
+name = "cera-lsp"
+description = "Language server for Cera"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "cera-lsp"
+path = "src/main.rs"
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }
+kote = { path = "../kote" }
+serde_json = "1"

@@ -1,0 +1,41 @@
+# Raw memory, for drivers, allocators and wire formats. Every function here is unsafe:
+# call it inside `unsafe do ... end`. Addresses are plain `usize` values. Only the native
+# backend runs this code; the interpreters stop with an error.
+
+# The address of the first byte of a string's text.
+addr_of :: fn(s: String) -> usize
+# A new zero-filled buffer of `size` bytes, as a string (read it with `read_*` or the string functions).
+buffer :: fn(size: usize) -> String
+# Copy `len` bytes starting at `addr` into a new string.
+string_from :: fn(addr: usize, len: usize) -> String
+# Copy a string's bytes to `addr`.
+copy_to :: fn(addr: usize, s: String)
+
+# Loads and stores of exactly that width, never merged or dropped (for device registers).
+read_u8 :: fn(addr: usize) -> u8
+read_u16 :: fn(addr: usize) -> u16
+read_u32 :: fn(addr: usize) -> u32
+read_u64 :: fn(addr: usize) -> u64
+write_u8 :: fn(addr: usize, value: u8)
+write_u16 :: fn(addr: usize, value: u16)
+write_u32 :: fn(addr: usize, value: u32)
+write_u64 :: fn(addr: usize, value: u64)
+
+# Manual allocation. Blocks are 8-byte aligned and zeroed; sizes are rounded up to a power of
+# two (at least 16 bytes). Pass `free` and `realloc` the same size you asked for.
+# A block's memory is reused by later `alloc` calls; ordinary values are never freed.
+alloc :: fn(size: usize) -> usize
+free :: fn(addr: usize, size: usize)
+realloc :: fn(addr: usize, old_size: usize, size: usize) -> usize
+# Bytes currently held by `alloc` blocks (after rounding).
+live :: fn() -> usize
+# Copy `len` bytes; the ranges may overlap.
+copy :: fn(dst: usize, src: usize, len: usize)
+# Set `len` bytes to `value`.
+fill :: fn(addr: usize, value: u8, len: usize)
+# Reclaim everything allocated after a mark: `mark` notes the heap position, `reset` rewinds to
+# it (zeroing the memory). Every value created since the mark, strings and lists included, is
+# invalid afterwards; copy what you keep out first (for example with `string_from` into a
+# buffer made with `alloc`). If the heap grew a new chunk since the mark, `reset` keeps everything.
+mark :: fn() -> usize
+reset :: fn(mark: usize)

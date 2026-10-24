@@ -1,0 +1,13 @@
+# intro1: Say hello
+# Book: chapter 2
+# expect: Hello, world!
+# I AM NOT DONE
+
+import std.io
+
+main :: fn() do
+  io.println("Hello, world!"
+end
+
+# HINT
+# A call opens with `(` and has to close with `)`.

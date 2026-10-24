@@ -1,0 +1,23 @@
+[package]
+name = "kote"
+description = "The Cera package manager and build tool"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "kote"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kote"
+path = "src/main.rs"
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }
+cera-eval = { path = "../cera-eval" }
+cera-native = { path = "../cera-native" }
+toml = "0.8"
+toml_edit = "0.22"

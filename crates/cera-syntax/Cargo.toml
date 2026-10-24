@@ -1,0 +1,9 @@
+[package]
+name = "cera-syntax"
+description = "Lexer, AST and parser for the Cera programming language"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]

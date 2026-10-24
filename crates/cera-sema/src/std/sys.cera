@@ -1,0 +1,13 @@
+# Raw system calls of the target operating system (`syscall` with the number in the first
+# argument). Every function here is unsafe: call it inside `unsafe do ... end`. Wrap it in a
+# safe function that checks the result. Only the native backend runs this code.
+#
+# The result is the raw return value; on Linux and Lythos, failures are negative numbers.
+
+syscall0 :: fn(n: i64) -> i64
+syscall1 :: fn(n: i64, a: i64) -> i64
+syscall2 :: fn(n: i64, a: i64, b: i64) -> i64
+syscall3 :: fn(n: i64, a: i64, b: i64, c: i64) -> i64
+syscall4 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64) -> i64
+syscall5 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64, e: i64) -> i64
+syscall6 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64

@@ -1,0 +1,16 @@
+[package]
+name = "ceralings"
+description = "Small exercises to get you used to reading and writing Cera"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ceralings"
+path = "src/main.rs"
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }
+cera-eval = { path = "../cera-eval" }

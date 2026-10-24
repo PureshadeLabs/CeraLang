@@ -1,0 +1,12 @@
+# errors2: Closing a match
+# Book: chapter 11
+# I AM NOT DONE
+
+describe :: fn(m: Option<i32>) -> String do
+  match m do
+    Some(n) -> "present"
+    None -> "missing"
+end
+
+# HINT
+# The `match` needs its own `end`, in addition to the one that closes the function.

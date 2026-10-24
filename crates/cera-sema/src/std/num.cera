@@ -1,0 +1,23 @@
+# Stub signatures for std.num (also reachable as `Num.name`).
+# The conversions return None when the value does not fit.
+
+min :: fn<T: Ord>(a: T, b: T) -> T
+max :: fn<T: Ord>(a: T, b: T) -> T
+clamp :: fn<T: Ord>(x: T, low: T, high: T) -> T
+abs :: fn<T: Neg>(x: T) -> T
+pow :: fn<T: Mul>(base: T, exponent: u32) -> T
+sqrt :: fn(x: f64) -> f64
+floor :: fn(x: f64) -> f64
+ceil :: fn(x: f64) -> f64
+round :: fn(x: f64) -> f64
+to_f64 :: fn<T: Add>(x: T) -> f64
+to_i8 :: fn<T: Add>(x: T) -> Option<i8>
+to_i16 :: fn<T: Add>(x: T) -> Option<i16>
+to_i32 :: fn<T: Add>(x: T) -> Option<i32>
+to_i64 :: fn<T: Add>(x: T) -> Option<i64>
+to_isize :: fn<T: Add>(x: T) -> Option<isize>
+to_u8 :: fn<T: Add>(x: T) -> Option<u8>
+to_u16 :: fn<T: Add>(x: T) -> Option<u16>
+to_u32 :: fn<T: Add>(x: T) -> Option<u32>
+to_u64 :: fn<T: Add>(x: T) -> Option<u64>
+to_usize :: fn<T: Add>(x: T) -> Option<usize>

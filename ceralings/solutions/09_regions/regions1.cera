@@ -1,0 +1,9 @@
+# regions1: Open a region
+# Book: chapter 12
+
+main :: fn() do
+  region do
+    numbers = [1, 2, 3]
+    total = numbers |> sum
+  end
+end

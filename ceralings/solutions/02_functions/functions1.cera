@@ -1,0 +1,7 @@
+# functions1: Parameter types
+# Book: chapter 4
+
+# Parameters need a type: name: Type
+add :: fn(a: i32, b: i32) -> i32 do
+  a + b
+end

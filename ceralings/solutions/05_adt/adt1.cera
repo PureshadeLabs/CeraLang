@@ -1,0 +1,14 @@
+# adt1: Closing a type
+# Book: chapter 7
+
+Shape :: type
+  | Circle(r: f64)
+  | Rect(w: f64, h: f64)
+end
+
+area :: fn(s: Shape) -> f64 do
+  match s do
+    Circle(r) -> 3.14159 * r * r
+    Rect(w, h) -> w * h
+  end
+end

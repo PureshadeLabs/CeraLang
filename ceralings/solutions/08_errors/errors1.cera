@@ -1,0 +1,15 @@
+# errors1: Generic types in signatures
+# Book: chapter 11
+
+ParseError :: type
+  | Empty
+  | NotANumber(text: String)
+end
+
+parse_age :: fn(text: String) -> Result<i32, ParseError> do
+  if text == "" do
+    Err(Empty)
+  else
+    Ok(0)
+  end
+end

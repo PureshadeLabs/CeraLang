@@ -1,0 +1,5 @@
+import std.io
+
+main :: fn() do
+  "Hello, world!" |> io.println
+end

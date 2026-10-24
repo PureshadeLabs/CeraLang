@@ -1,0 +1,4 @@
+# Stub signatures for std.time.
+
+now_ms :: fn(clock: Clock) -> i64
+sleep_ms :: fn(clock: Clock, ms: u64)

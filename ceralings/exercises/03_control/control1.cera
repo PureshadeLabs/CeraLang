@@ -1,0 +1,17 @@
+# control1: if needs do
+# Book: chapter 5
+# I AM NOT DONE
+
+# Return -1 for negative numbers, 0 for zero and 1 for positive numbers.
+sign :: fn(n: i32) -> i32 do
+  if n < 0
+    -1
+  else if n == 0 do
+    0
+  else
+    1
+  end
+end
+
+# HINT
+# Every `if` condition is followed by `do`, including the first one.

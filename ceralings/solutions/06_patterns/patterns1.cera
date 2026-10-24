@@ -1,0 +1,12 @@
+# patterns1: Matching tuples
+# Book: chapter 8
+
+# FizzBuzz by matching on the remainders of 3 and 5.
+fizz :: fn(n: i32) -> String do
+  match (n % 3, n % 5) do
+    (0, 0) -> "FizzBuzz"
+    (0, _) -> "Fizz"
+    (_, 0) -> "Buzz"
+    _ -> "number"
+  end
+end

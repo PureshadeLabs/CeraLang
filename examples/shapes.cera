@@ -1,0 +1,23 @@
+import std.io
+
+Shape :: type
+  | Circle(r: f64)
+  | Rect(w: f64, h: f64)
+end
+
+area :: fn(s: Shape) -> f64 do
+  match s do
+    Circle(r)  -> 3.14159 * r * r
+    Rect(w, h) -> w * h
+  end
+end
+
+main :: fn() do
+  region do
+    shapes = [Circle(2.0), Rect(3.0, 4.0)]
+    shapes
+      |> map(area)
+      |> sum
+      |> io.println
+  end
+end

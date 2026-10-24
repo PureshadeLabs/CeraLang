@@ -1,0 +1,9 @@
+# intro1: Say hello
+# Book: chapter 2
+# expect: Hello, world!
+
+import std.io
+
+main :: fn() do
+  io.println("Hello, world!")
+end

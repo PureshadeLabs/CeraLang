@@ -1,0 +1,3 @@
+# Stub signatures for std.process.
+
+exit :: fn(code: i32)

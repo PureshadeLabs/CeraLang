@@ -1,0 +1,23 @@
+# traits1: Implement a trait
+# Book: chapter 16
+# expect: woof
+
+import std.io
+
+Dog :: type
+  | Dog
+end
+
+Speak :: trait
+  speak :: fn(self) -> String
+end
+
+impl Speak for Dog do
+  speak :: fn(d: Dog) -> String do
+    "woof"
+  end
+end
+
+main :: fn() do
+  io.println(speak(Dog))
+end

@@ -1,0 +1,9 @@
+# Stub signatures for std.result (also reachable as `Result.name`).
+
+is_ok :: fn<T, E>(r: Result<T, E>) -> bool
+is_err :: fn<T, E>(r: Result<T, E>) -> bool
+unwrap_or :: fn<T, E>(r: Result<T, E>, default: T) -> T
+map :: fn<A, B, E>(r: Result<A, E>, f: fn(A) -> B) -> Result<B, E>
+map_err :: fn<T, E, F>(r: Result<T, E>, f: fn(E) -> F) -> Result<T, F>
+and_then :: fn<A, B, E>(r: Result<A, E>, f: fn(A) -> Result<B, E>) -> Result<B, E>
+ok :: fn<T, E>(r: Result<T, E>) -> Option<T>

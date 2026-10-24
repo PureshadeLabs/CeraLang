@@ -1,0 +1,12 @@
+# Stub signatures for std.set (also reachable as `Set.name`).
+# Sets are immutable and ordered.
+
+new :: fn<T: Ord>() -> Set<T>
+insert :: fn<T: Ord>(s: Set<T>, x: T) -> Set<T>
+contains :: fn<T: Ord>(s: Set<T>, x: T) -> bool
+remove :: fn<T: Ord>(s: Set<T>, x: T) -> Set<T>
+size :: fn<T>(s: Set<T>) -> usize
+is_empty :: fn<T>(s: Set<T>) -> bool
+to_list :: fn<T>(s: Set<T>) -> [T]
+from_list :: fn<T: Ord>(xs: [T]) -> Set<T>
+union :: fn<T: Ord>(a: Set<T>, b: Set<T>) -> Set<T>

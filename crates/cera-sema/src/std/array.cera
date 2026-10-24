@@ -1,0 +1,20 @@
+# Stub signatures for std.array (also reachable as `Array.name`).
+# An array is a growable list of values with O(1) `get` and `set`. Unlike lists, arrays are
+# changed in place: every name that refers to the same array sees the change. Use `copy` for an
+# independent array. Indexes are `usize`; an out-of-range index is a runtime error except in
+# `get`, which returns an Option.
+
+new :: fn<T>() -> Array<T>
+filled :: fn<T>(count: usize, value: T) -> Array<T>
+from_list :: fn<T>(xs: [T]) -> Array<T>
+to_list :: fn<T>(a: Array<T>) -> [T]
+length :: fn<T>(a: Array<T>) -> usize
+get :: fn<T>(a: Array<T>, index: usize) -> Option<T>
+set :: fn<T>(a: Array<T>, index: usize, value: T)
+push :: fn<T>(a: Array<T>, value: T)
+pop :: fn<T>(a: Array<T>) -> Option<T>
+insert :: fn<T>(a: Array<T>, index: usize, value: T)
+remove :: fn<T>(a: Array<T>, index: usize) -> T
+swap :: fn<T>(a: Array<T>, i: usize, j: usize)
+clear :: fn<T>(a: Array<T>)
+copy :: fn<T>(a: Array<T>) -> Array<T>

@@ -1,0 +1,15 @@
+# control2: match arms
+# Book: chapter 5
+# I AM NOT DONE
+
+# Words for small numbers.
+describe :: fn(n: i32) -> String do
+  match n do
+    0 -> "zero"
+    1 -> ???
+    _ -> ???
+  end
+end
+
+# HINT
+# Each arm is `pattern -> expression`. The last arm, `_`, catches everything else.

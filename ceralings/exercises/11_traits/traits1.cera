@@ -1,0 +1,27 @@
+# traits1: Implement a trait
+# Book: chapter 16
+# expect: woof
+# I AM NOT DONE
+
+import std.io
+
+Dog :: type
+  | Dog
+end
+
+Speak :: trait
+  speak :: fn(self) -> String
+end
+
+impl Speak Dog do
+  speak :: fn(d: Dog) -> String do
+    "woof"
+  end
+end
+
+main :: fn() do
+  io.println(speak(Dog))
+end
+
+# HINT
+# An impl names the trait and the type: `impl Speak for Dog do`.

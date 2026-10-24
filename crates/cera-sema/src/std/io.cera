@@ -1,0 +1,13 @@
+# Stub signatures for std.io.
+# `println` and friends use the default console. `write`/`writeln`/`read_line_from`
+# use an explicit console capability (`caps.console`).
+
+println :: fn<T: Show>(value: T)
+print :: fn<T: Show>(value: T)
+eprintln :: fn<T: Show>(value: T)
+eprint :: fn<T: Show>(value: T)
+read_line :: fn() -> Option<String>
+read_all :: fn() -> String
+write :: fn(console: Console, s: String)
+writeln :: fn(console: Console, s: String)
+read_line_from :: fn(console: Console) -> Option<String>

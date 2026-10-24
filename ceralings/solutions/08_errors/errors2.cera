@@ -1,0 +1,9 @@
+# errors2: Closing a match
+# Book: chapter 11
+
+describe :: fn(m: Option<i32>) -> String do
+  match m do
+    Some(n) -> "present"
+    None -> "missing"
+  end
+end

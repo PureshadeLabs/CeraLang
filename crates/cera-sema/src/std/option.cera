@@ -1,0 +1,8 @@
+# Stub signatures for std.option (also reachable as `Option.name`).
+
+is_some :: fn<T>(o: Option<T>) -> bool
+is_none :: fn<T>(o: Option<T>) -> bool
+unwrap_or :: fn<T>(o: Option<T>, default: T) -> T
+map :: fn<A, B>(o: Option<A>, f: fn(A) -> B) -> Option<B>
+and_then :: fn<A, B>(o: Option<A>, f: fn(A) -> Option<B>) -> Option<B>
+ok_or :: fn<T, E>(o: Option<T>, error: E) -> Result<T, E>

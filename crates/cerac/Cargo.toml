@@ -1,0 +1,17 @@
+[package]
+name = "cerac"
+description = "The Cera compiler driver"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "cerac"
+path = "src/main.rs"
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }
+cera-eval = { path = "../cera-eval" }
+cera-native = { path = "../cera-native" }

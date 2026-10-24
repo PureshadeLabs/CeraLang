@@ -1,0 +1,14 @@
+[book]
+title = "The Cera Programming Language"
+authors = ["Pureshade Labs"]
+description = "A complete guide to Cera, a functional systems language with regions instead of a garbage collector."
+language = "en"
+src = "src"
+
+[build]
+build-dir = "../target/book"
+
+[output.html]
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
+smart-punctuation = true

@@ -1,0 +1,15 @@
+# defer1: Defer a cleanup
+# Book: chapter 14
+# expect: reading
+# expect: closed
+# I AM NOT DONE
+
+import std.io
+
+main :: fn() do
+  defer
+  io.println("reading")
+end
+
+# HINT
+# `defer` is followed by the expression to run when the scope ends: `defer io.println("closed")`.

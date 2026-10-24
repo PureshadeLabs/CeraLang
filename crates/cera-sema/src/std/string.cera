@@ -1,0 +1,22 @@
+# Stub signatures for std.string (also reachable as `String.name`).
+# Lengths and offsets count bytes of the UTF-8 text.
+
+length :: fn(s: String) -> usize
+concat :: fn(parts: [String]) -> String
+is_empty :: fn(s: String) -> bool
+contains :: fn(s: String, part: String) -> bool
+starts_with :: fn(s: String, prefix: String) -> bool
+ends_with :: fn(s: String, suffix: String) -> bool
+split :: fn(s: String, separator: String) -> [String]
+join :: fn(parts: [String], separator: String) -> String
+trim :: fn(s: String) -> String
+to_upper :: fn(s: String) -> String
+to_lower :: fn(s: String) -> String
+replace :: fn(s: String, from: String, to: String) -> String
+repeat :: fn(s: String, times: usize) -> String
+lines :: fn(s: String) -> [String]
+chars :: fn(s: String) -> [char]
+from_chars :: fn(chars: [char]) -> String
+parse_i64 :: fn(s: String) -> Option<i64>
+parse_f64 :: fn(s: String) -> Option<f64>
+slice :: fn(s: String, start: usize, length: usize) -> Option<String>

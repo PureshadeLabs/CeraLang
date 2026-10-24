@@ -1,0 +1,20 @@
+# Bit operations and wrapping arithmetic on integers of any width (also `Bits.name`).
+# `and`, `or` and `not` are keywords, so the bitwise forms are `band`, `bor` and `bnot`.
+# Shifts take a `u32` count and must be less than the width. `shr` keeps the sign for signed
+# types. Results always have the type of the first operand.
+
+band :: fn<T: Add>(a: T, b: T) -> T
+bor :: fn<T: Add>(a: T, b: T) -> T
+bxor :: fn<T: Add>(a: T, b: T) -> T
+bnot :: fn<T: Add>(x: T) -> T
+shl :: fn<T: Add>(x: T, n: u32) -> T
+shr :: fn<T: Add>(x: T, n: u32) -> T
+rotl :: fn<T: Add>(x: T, n: u32) -> T
+rotr :: fn<T: Add>(x: T, n: u32) -> T
+popcount :: fn<T: Add>(x: T) -> u32
+leading_zeros :: fn<T: Add>(x: T) -> u32
+trailing_zeros :: fn<T: Add>(x: T) -> u32
+# Arithmetic that wraps around instead of reporting overflow.
+wrapping_add :: fn<T: Add>(a: T, b: T) -> T
+wrapping_sub :: fn<T: Add>(a: T, b: T) -> T
+wrapping_mul :: fn<T: Add>(a: T, b: T) -> T

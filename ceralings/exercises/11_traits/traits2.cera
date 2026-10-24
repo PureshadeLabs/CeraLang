@@ -1,0 +1,17 @@
+# traits2: Bound a type parameter
+# Book: chapter 16
+# expect: 7
+# I AM NOT DONE
+
+import std.io
+
+bigger :: fn<T>(a: T, b: T) -> T do
+  if a > b do a else b end
+end
+
+main :: fn() do
+  io.println(bigger(3, 7))
+end
+
+# HINT
+# Comparing with `>` needs the `Ord` trait. Write the bound where you declare the parameter: `fn<T: Ord>`.

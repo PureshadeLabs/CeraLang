@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cera-syntax",
+    "crates/cera-sema",
+    "crates/cera-eval",
+    "crates/cera-native",
+    "crates/cerac",
+    "crates/kote",
+    "crates/cera-lsp",
+    "crates/ceralings",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+authors = ["Pureshade Labs"]
+license = "MIT"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

@@ -1,0 +1,121 @@
+## Typed capability handles.
+##
+## Lythos tasks hold capabilities as numbered handles and the kernel cannot list them, so a
+## program learns what it holds from whoever started it. The convention for the first task
+## (`lythd`) is handles 0 to 3; a task started with `task.spawn` finds its caps in the order
+## the parent listed them. `Cap` pairs a handle with the kind you know it to be, so that
+## passing a Device capability where an IPC endpoint is wanted is an error in your program
+## instead of `ENOCAP` from the kernel.
+import std.mem
+import lythos
+import lythos.ipc
+import lythos.device
+import lythos.task
+
+## What a capability gives access to.
+pub Kind :: type
+  | Memory
+  | Rollback
+  | Ipc
+  | Filesystem
+  | Hardware
+end
+
+## A capability handle and what it is.
+pub Cap :: type { handle: i64, kind: Kind }
+
+## The four capabilities the kernel gives the first task.
+pub Boot :: type { memory: Cap, rollback: Cap, ipc: Cap, filesystem: Cap }
+
+## What the kernel reports about the machine at boot.
+pub BootInfo :: type { mem_bytes: u64, free_frames: u64, vendor: String }
+
+## State what a handle is. Nothing is checked until the kernel sees it.
+pub assume :: fn(handle: i64, kind: Kind) -> Cap do
+  Cap{handle: handle, kind: kind}
+end
+
+## The capabilities handed to `lythd`: memory (0), rollback (1), the boot-info endpoint (2)
+## and filesystem mount authority (3). Only useful in the first task.
+pub boot :: fn() -> Boot do
+  Boot{memory: assume(0, Memory), rollback: assume(1, Rollback), ipc: assume(2, Ipc), filesystem: assume(3, Filesystem)}
+end
+
+pub is_kind :: fn(cap: Cap, kind: Kind) -> bool do
+  match (cap.kind, kind) do
+    (Memory, Memory) -> true
+    (Rollback, Rollback) -> true
+    (Ipc, Ipc) -> true
+    (Filesystem, Filesystem) -> true
+    (Hardware, Hardware) -> true
+    _ -> false
+  end
+end
+
+wrong_kind :: fn(wanted: String) -> Error do
+  Error{message: String.concat(["expected a ", wanted, " capability"])}
+end
+
+## The capability as an IPC endpoint.
+pub endpoint :: fn(cap: Cap) -> Result<ipc.Endpoint, Error> do
+  if is_kind(cap, Ipc) do
+    Ok(ipc.from_handle(cap.handle))
+  else
+    Err(wrong_kind("IPC"))
+  end
+end
+
+## The capability as a claimed device.
+pub device_of :: fn(cap: Cap) -> Result<device.Device, Error> do
+  if is_kind(cap, Hardware) do
+    Ok(device.from_handle(cap.handle))
+  else
+    Err(wrong_kind("Device"))
+  end
+end
+
+## Start a task with these capabilities (slot 0 is the first in the list).
+pub spawn :: fn(elf: String, caps: [Cap], args: [String]) -> Result<task.Task, Error> do
+  task.spawn(elf, List.map(caps, fn(c) -> c.handle end), args)
+end
+
+## Give a task a copy of `cap` with at most `rights`. The copy is a `Cap` of the same kind in
+## the other task's table.
+pub grant :: fn(cap: Cap, to: task.Task, rights: i64) -> Result<Cap, Error> do
+  match task.grant(cap.handle, to, rights) do
+    Ok(h) -> Ok(Cap{handle: h, kind: cap.kind})
+    Err(e) -> Err(e)
+  end
+end
+
+## Remove `cap` and everything derived from it, in every task.
+pub revoke :: fn(cap: Cap) -> Result<(), Error> do
+  task.revoke(cap.handle)
+end
+
+## Read the boot-info message from the boot endpoint (the first call consumes it).
+pub boot_info :: fn(cap: Cap) -> Result<BootInfo, Error> do
+  match endpoint(cap) do
+    Err(e) -> Err(e)
+    Ok(ep) -> match ipc.recv(ep) do
+      Err(e) -> Err(e)
+      Ok(raw) -> parse_boot_info(raw)
+    end
+  end
+end
+
+## Decode a 64-byte boot-info message.
+pub parse_boot_info :: fn(raw: String) -> Result<BootInfo, Error> do
+  if String.length(raw) < 36 do
+    Err(Error{message: "the boot-info message is too short"})
+  else
+    at = unsafe do mem.addr_of(raw) end
+    unsafe do
+      if mem.read_u64(at) != 0xB0071000B0071000 do
+        Err(Error{message: "the message is not boot info (bad signature)"})
+      else
+        Ok(BootInfo{mem_bytes: mem.read_u64(at + 8), free_frames: mem.read_u64(at + 16), vendor: mem.string_from(at + 24, 12)})
+      end
+    end
+  end
+end

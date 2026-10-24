@@ -1,0 +1,97 @@
+## The Lythos system interface for Cera programs: IPC, tasks, memory and time.
+##
+## This package is written in Cera on top of `std.sys` and `std.mem`, so the unsafe code
+## stays in these few files and programs call safe functions. Build programs that use it
+## with `kote build --target x86_64-lythos`. The syscall numbers and error values come from
+## `docs/spec/syscalls.md` of PureshadeOS.
+import std.sys
+
+## The name of a Lythos error value (`-1` is `ENOSYS`, ... `-17` is `EIO`).
+pub error_name :: fn(code: i64) -> String do
+  if code == 0 - 1 do
+    "ENOSYS: unknown or unassigned system call"
+  else if code == 0 - 2 do
+    "ENOCAP: invalid or stale capability handle"
+  else if code == 0 - 3 do
+    "ENOPERM: the capability's rights are insufficient"
+  else if code == 0 - 4 do
+    "EINVAL: invalid argument"
+  else if code == 0 - 5 do
+    "ENOENT: no such file, directory or name"
+  else if code == 0 - 6 do
+    "EBADF: bad file descriptor"
+  else if code == 0 - 7 do
+    "EAGAIN: would block or timed out"
+  else if code == 0 - 8 do
+    "ENOTDIR: not a directory"
+  else if code == 0 - 9 do
+    "ENOMNT: filesystem not mounted"
+  else if code == 0 - 10 do
+    "EMFILE: too many open files"
+  else if code == 0 - 11 do
+    "EEXIST: already exists"
+  else if code == 0 - 12 do
+    "ENOSPC: no space left"
+  else if code == 0 - 13 do
+    "EMOUNTED: a mount already exists there"
+  else if code == 0 - 14 do
+    "EROFS: read-only"
+  else if code == 0 - 15 do
+    "EISDIR: is a directory"
+  else if code == 0 - 16 do
+    "ENOTEMPTY: directory not empty"
+  else if code == 0 - 17 do
+    "EIO: input/output or integrity fault"
+  else
+    String.concat(["unknown error ", show(code)])
+  end
+end
+
+## Is a raw return value an error? Lythos errors are the numbers `-1` to `-17`.
+pub is_error :: fn(r: i64) -> bool do
+  r < 0 and r >= 0 - 17
+end
+
+## A raw return value as a result: the value, or the error.
+pub check :: fn(r: i64) -> Result<i64, Error> do
+  if is_error(r) do
+    Err(Error{message: error_name(r)})
+  else
+    Ok(r)
+  end
+end
+
+## The same, for calls that only report success or failure.
+pub check_unit :: fn(r: i64) -> Result<(), Error> do
+  if is_error(r) do
+    Err(Error{message: error_name(r)})
+  else
+    Ok(())
+  end
+end
+
+## `EAGAIN` as a value: `true` when the call only ran out of time or data.
+pub is_again :: fn(r: i64) -> bool do
+  r == 0 - 7
+end
+
+## Capability rights bits.
+pub rights_read :: fn() -> i64 do
+  1
+end
+
+pub rights_write :: fn() -> i64 do
+  2
+end
+
+pub rights_grant :: fn() -> i64 do
+  4
+end
+
+pub rights_revoke :: fn() -> i64 do
+  8
+end
+
+pub rights_all :: fn() -> i64 do
+  15
+end

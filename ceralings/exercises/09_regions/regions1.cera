@@ -1,0 +1,13 @@
+# regions1: Open a region
+# Book: chapter 12
+# I AM NOT DONE
+
+main :: fn() do
+  region
+    numbers = [1, 2, 3]
+    total = numbers |> sum
+  end
+end
+
+# HINT
+# Like every block, a region opens with `do`.

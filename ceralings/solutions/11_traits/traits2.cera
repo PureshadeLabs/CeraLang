@@ -1,0 +1,13 @@
+# traits2: Bound a type parameter
+# Book: chapter 16
+# expect: 7
+
+import std.io
+
+bigger :: fn<T: Ord>(a: T, b: T) -> T do
+  if a > b do a else b end
+end
+
+main :: fn() do
+  io.println(bigger(3, 7))
+end

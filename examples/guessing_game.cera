@@ -1,0 +1,57 @@
+## The guessing game from the Rust book, in Cera.
+##
+##   cerac run examples/guessing_game.cera
+##
+## The computer picks a number from 1 to 100; you guess until you get it.
+import std.io
+import std.time
+import std.bits
+
+## A pseudo-random number in 1..=100 from a seed (a linear congruential step).
+secret_from :: fn(seed: u64) -> i64 do
+  mixed = bits.wrapping_add(bits.wrapping_mul(seed, 6364136223846793005), 1442695040888963407)
+  roll = bits.shr(mixed, 33) % 100
+  Option.unwrap_or(Num.to_i64(roll), 0) + 1
+end
+
+## Ask until the player gives a number; `None` means the input ended.
+read_guess :: fn() -> Option<i64> do
+  io.print("Please input your guess: ")
+  match io.read_line() do
+    None -> None
+    Some(line) ->
+      match String.parse_i64(String.trim(line)) do
+        Some(n) -> Some(n)
+        None -> do
+          io.println("Please type a number!")
+          read_guess()
+        end
+      end
+  end
+end
+
+play :: fn(secret: i64, tries: i32) do
+  match read_guess() do
+    None -> io.println("Goodbye!")
+    Some(guess) -> do
+      io.println(String.concat(["You guessed: ", show(guess)]))
+      match compare(guess, secret) do
+        Less -> do
+          io.println("Too small!")
+          play(secret, tries + 1)
+        end
+        Greater -> do
+          io.println("Too big!")
+          play(secret, tries + 1)
+        end
+        Equal -> io.println(String.concat(["You win, in ", show(tries), " tries!"]))
+      end
+    end
+  end
+end
+
+main :: fn(caps: Caps) do
+  seed = Option.unwrap_or(Num.to_u64(time.now_ms(caps.clock)), 1)
+  io.println("Guess the number!")
+  play(secret_from(seed), 1)
+end

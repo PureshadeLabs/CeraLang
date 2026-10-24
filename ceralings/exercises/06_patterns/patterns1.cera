@@ -1,0 +1,16 @@
+# patterns1: Matching tuples
+# Book: chapter 8
+# I AM NOT DONE
+
+# FizzBuzz by matching on the remainders of 3 and 5.
+fizz :: fn(n: i32) -> String do
+  match (n % 3, n % 5) do
+    (0, 0) -> "FizzBuzz"
+    (0, ???) -> "Fizz"
+    (???, 0) -> "Buzz"
+    _ -> "number"
+  end
+end
+
+# HINT
+# Use `_` for a position you do not care about.

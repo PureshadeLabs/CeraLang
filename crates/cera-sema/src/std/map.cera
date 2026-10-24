@@ -1,0 +1,16 @@
+# Stub signatures for std.map (also reachable as `Map.name`).
+# Maps are immutable: every update returns a new map. Keys are kept in order.
+
+new :: fn<K: Ord, V>() -> Map<K, V>
+insert :: fn<K: Ord, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
+get :: fn<K: Ord, V>(m: Map<K, V>, key: K) -> Option<V>
+get_or :: fn<K: Ord, V>(m: Map<K, V>, key: K, default: V) -> V
+remove :: fn<K: Ord, V>(m: Map<K, V>, key: K) -> Map<K, V>
+contains_key :: fn<K: Ord, V>(m: Map<K, V>, key: K) -> bool
+size :: fn<K, V>(m: Map<K, V>) -> usize
+is_empty :: fn<K, V>(m: Map<K, V>) -> bool
+keys :: fn<K, V>(m: Map<K, V>) -> [K]
+values :: fn<K, V>(m: Map<K, V>) -> [V]
+to_list :: fn<K, V>(m: Map<K, V>) -> [(K, V)]
+from_list :: fn<K: Ord, V>(pairs: [(K, V)]) -> Map<K, V>
+merge :: fn<K: Ord, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>

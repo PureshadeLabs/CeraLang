@@ -1,0 +1,11 @@
+# defer1: Defer a cleanup
+# Book: chapter 14
+# expect: reading
+# expect: closed
+
+import std.io
+
+main :: fn() do
+  defer io.println("closed")
+  io.println("reading")
+end

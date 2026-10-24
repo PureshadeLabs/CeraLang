@@ -1,0 +1,147 @@
+## IPC endpoints: small messages (up to 64 bytes), named endpoints, capability transfer.
+import std.mem
+import std.sys
+import lythos
+
+## A capability to an IPC endpoint.
+pub Endpoint :: type { handle: i64 }
+
+## The largest message the kernel carries.
+pub max_message :: fn() -> usize do
+  64
+end
+
+## A new endpoint with all rights.
+pub create :: fn() -> Result<Endpoint, Error> do
+  r = unsafe do sys.syscall0(8) end
+  match lythos.check(r) do
+    Ok(h) -> Ok(Endpoint{handle: h})
+    Err(e) -> Err(e)
+  end
+end
+
+## Wrap a handle received some other way (for example the first capability a parent passed).
+pub from_handle :: fn(handle: i64) -> Endpoint do
+  Endpoint{handle: handle}
+end
+
+## Make the endpoint reachable by `name` (needs the GRANT right). Names are global and permanent.
+pub bind :: fn(ep: Endpoint, name: String) -> Result<(), Error> do
+  r = unsafe do sys.syscall3(40, ep.handle, num_addr(name), num_len(name)) end
+  lythos.check_unit(r)
+end
+
+## A new capability to the endpoint registered as `name`, with the given rights.
+pub lookup :: fn(name: String, rights: i64) -> Result<Endpoint, Error> do
+  r = unsafe do sys.syscall3(41, num_addr(name), num_len(name), rights) end
+  match lythos.check(r) do
+    Ok(h) -> Ok(Endpoint{handle: h})
+    Err(e) -> Err(e)
+  end
+end
+
+## Send a message; waits while the ring is full.
+pub send :: fn(ep: Endpoint, msg: String) -> Result<(), Error> do
+  if String.length(msg) > 64 do
+    Err(Error{message: "a message is at most 64 bytes"})
+  else
+    r = unsafe do sys.syscall3(6, ep.handle, num_addr(msg), num_len(msg)) end
+    lythos.check_unit(r)
+  end
+end
+
+## Send, giving up after `ms` milliseconds. `Ok(false)` means it timed out.
+pub send_timeout :: fn(ep: Endpoint, msg: String, ms: i64) -> Result<bool, Error> do
+  if String.length(msg) > 64 do
+    Err(Error{message: "a message is at most 64 bytes"})
+  else
+    r = unsafe do sys.syscall4(43, ep.handle, num_addr(msg), num_len(msg), ms) end
+    if lythos.is_again(r) do
+      Ok(false)
+    else
+      match lythos.check_unit(r) do
+        Ok(_) -> Ok(true)
+        Err(e) -> Err(e)
+      end
+    end
+  end
+end
+
+## Receive the next message; waits while the ring is empty.
+pub recv :: fn(ep: Endpoint) -> Result<String, Error> do
+  buf = unsafe do mem.buffer(64) end
+  r = unsafe do sys.syscall3(7, ep.handle, num_addr(buf), 64) end
+  decode(buf, r)
+end
+
+## Receive if a message is waiting: `Ok(None)` when the ring is empty.
+pub poll :: fn(ep: Endpoint) -> Result<Option<String>, Error> do
+  buf = unsafe do mem.buffer(64) end
+  r = unsafe do sys.syscall3(39, ep.handle, num_addr(buf), 64) end
+  maybe(buf, r)
+end
+
+## Receive, giving up after `ms` milliseconds: `Ok(None)` on a timeout.
+pub recv_timeout :: fn(ep: Endpoint, ms: i64) -> Result<Option<String>, Error> do
+  buf = unsafe do mem.buffer(64) end
+  r = unsafe do sys.syscall4(42, ep.handle, num_addr(buf), 64, ms) end
+  maybe(buf, r)
+end
+
+## Send a message together with the capability `cap` (a handle in this task's table).
+pub send_cap :: fn(ep: Endpoint, msg: String, cap: i64) -> Result<(), Error> do
+  if String.length(msg) > 64 do
+    Err(Error{message: "a message is at most 64 bytes"})
+  else
+    r = unsafe do sys.syscall4(12, ep.handle, num_addr(msg), num_len(msg), cap) end
+    lythos.check_unit(r)
+  end
+end
+
+## Receive a message and the capability that came with it, if any.
+pub recv_cap :: fn(ep: Endpoint) -> Result<(String, Option<i64>), Error> do
+  buf = unsafe do mem.buffer(64) end
+  slot = unsafe do mem.buffer(8) end
+  r = unsafe do sys.syscall4(13, ep.handle, num_addr(buf), 64, num_addr(slot)) end
+  match decode(buf, r) do
+    Err(e) -> Err(e)
+    Ok(text) -> do
+      got = unsafe do mem.read_u64(mem.addr_of(slot)) end
+      if got == 18446744073709551615 do
+        Ok((text, None))
+      else
+        Ok((text, Some(num_of_u64(got))))
+      end
+    end
+  end
+end
+
+num_addr :: fn(s: String) -> i64 do
+  Option.unwrap_or(Num.to_i64(unsafe do mem.addr_of(s) end), 0)
+end
+
+num_len :: fn(s: String) -> i64 do
+  Option.unwrap_or(Num.to_i64(String.length(s)), 0)
+end
+
+num_of_u64 :: fn(x: u64) -> i64 do
+  Option.unwrap_or(Num.to_i64(x), 0)
+end
+
+decode :: fn(buf: String, r: i64) -> Result<String, Error> do
+  match lythos.check(r) do
+    Err(e) -> Err(e)
+    Ok(n) -> Ok(unsafe do mem.string_from(mem.addr_of(buf), Option.unwrap_or(Num.to_usize(n), 0)) end)
+  end
+end
+
+maybe :: fn(buf: String, r: i64) -> Result<Option<String>, Error> do
+  if lythos.is_again(r) do
+    Ok(None)
+  else
+    match decode(buf, r) do
+      Ok(s) -> Ok(Some(s))
+      Err(e) -> Err(e)
+    end
+  end
+end

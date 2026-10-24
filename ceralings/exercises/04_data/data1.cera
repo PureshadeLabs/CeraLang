@@ -1,0 +1,13 @@
+# data1: Record literals
+# Book: chapter 6
+# I AM NOT DONE
+
+Point :: type { x: f64, y: f64 }
+
+# Build a record by naming its type and giving field: value pairs.
+origin :: fn() -> Point do
+  Point{x = 0.0, y = 0.0}
+end
+
+# HINT
+# Record fields use a colon, like in the type declaration: `x: 0.0`.

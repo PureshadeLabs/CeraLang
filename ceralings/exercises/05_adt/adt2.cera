@@ -1,0 +1,12 @@
+# adt2: Recursive types
+# Book: chapter 7
+# I AM NOT DONE
+
+# A binary tree. Nodes hold a left tree, a value and a right tree.
+Tree<T> :: type
+  | Leaf
+  | Node(left: Tree<T>, value: T, right: Tree<T>
+end
+
+# HINT
+# The `Node` variant is missing a closing parenthesis.

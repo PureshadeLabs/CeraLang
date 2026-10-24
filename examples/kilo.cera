@@ -1,0 +1,673 @@
+## kilo: a small terminal text editor, after antirez's kilo.
+##
+## Build and run (Linux terminal):
+##   cerac build examples/kilo.cera -o kilo && ./kilo [file]
+##
+## Keys: arrows, Home/End, PageUp/PageDown move; type to insert; Backspace/Delete remove;
+## Ctrl-S saves, Ctrl-F searches (arrows jump between matches, Enter keeps, Esc cancels),
+## Ctrl-Q quits (press it again, three times, to drop unsaved changes).
+##
+## The editor is byte based and ASCII only, like the original. Tabs in a file become four
+## spaces. Lines live in an immutable list, so every edit builds a new list; each screen
+## refresh uses `mem.mark` and `mem.reset` to give its temporary strings back.
+import std.io
+import std.fs
+import std.env
+import std.mem
+import std.sys
+import std.string
+import std.list
+
+## --- small helpers ------------------------------------------------------------------
+
+to_i :: fn(x: usize) -> i64 do
+  Option.unwrap_or(Num.to_i64(x), 0)
+end
+
+to_u :: fn(x: i64) -> usize do
+  Option.unwrap_or(Num.to_usize(x), 0)
+end
+
+len_of :: fn(s: String) -> i64 do
+  to_i(String.length(s))
+end
+
+lo :: fn(a: i64, b: i64) -> i64 do
+  if a < b do a else b end
+end
+
+hi :: fn(a: i64, b: i64) -> i64 do
+  if a > b do a else b end
+end
+
+## The text of `s` from byte `start`, at most `n` bytes; out-of-range requests are clipped.
+sub :: fn(s: String, start: i64, n: i64) -> String do
+  total = len_of(s)
+  a = hi(0, lo(start, total))
+  m = hi(0, lo(n, total - a))
+  Option.unwrap_or(String.slice(s, to_u(a), to_u(m)), "")
+end
+
+line_at :: fn(lines: [String], y: i64) -> String do
+  Option.unwrap_or(List.get(lines, to_u(y)), "")
+end
+
+set_line :: fn(lines: [String], y: i64, s: String) -> [String] do
+  List.append(List.take(lines, to_u(y)), [s | List.drop(lines, to_u(y + 1))])
+end
+
+insert_line :: fn(lines: [String], y: i64, s: String) -> [String] do
+  List.append(List.take(lines, to_u(y)), [s | List.drop(lines, to_u(y))])
+end
+
+delete_line :: fn(lines: [String], y: i64) -> [String] do
+  List.append(List.take(lines, to_u(y)), List.drop(lines, to_u(y + 1)))
+end
+
+## --- terminal -----------------------------------------------------------------------
+
+## ioctl(fd, request, argument address)
+ioctl :: fn(fd: i64, request: i64, addr: usize) -> i64 do
+  unsafe do
+    sys.syscall3(16, fd, request, to_i(addr))
+  end
+end
+
+write_all :: fn(text: String) do
+  unsafe do
+    addr = to_i(mem.addr_of(text))
+    total = len_of(text)
+    var done = 0
+    while done < total do
+      n = sys.syscall3(1, 1, addr + done, total - done)
+      if n <= 0 do
+        done := total
+      else
+        done := done + n
+      end
+    end
+  end
+end
+
+has_bit :: fn(x: i64, b: i64) -> bool do
+  (x / b) % 2 == 1
+end
+
+without :: fn(x: i64, b: i64) -> i64 do
+  if has_bit(x, b) do x - b else x end
+end
+
+with_bit :: fn(x: i64, b: i64) -> i64 do
+  if has_bit(x, b) do x else x + b end
+end
+
+u32_at :: fn(addr: usize) -> i64 do
+  Option.unwrap_or(Num.to_i64(unsafe do mem.read_u32(addr) end), 0)
+end
+
+put_u32 :: fn(addr: usize, v: i64) do
+  unsafe do
+    mem.write_u32(addr, Option.unwrap_or(Num.to_u32(v), 0))
+  end
+end
+
+## Switch the terminal to raw mode (no echo, no line buffering, no signals, no output
+## processing, reads time out after 100 ms). `saved` is the original termios, 36 bytes.
+raw_mode :: fn(saved: String) do
+  t = unsafe do mem.addr_of(saved) end
+  work = unsafe do mem.buffer(64) end
+  w = unsafe do mem.addr_of(work) end
+  unsafe do
+    mem.copy(w, t, 36)
+  end
+  # c_iflag: BRKINT ICRNL INPCK ISTRIP IXON off
+  iflag = u32_at(w)
+  put_u32(w, without(without(without(without(without(iflag, 2), 256), 16), 32), 1024))
+  # c_oflag: OPOST off
+  put_u32(w + 4, without(u32_at(w + 4), 1))
+  # c_cflag: CS8
+  put_u32(w + 8, with_bit(u32_at(w + 8), 48))
+  # c_lflag: ECHO ICANON IEXTEN ISIG off
+  put_u32(w + 12, without(without(without(without(u32_at(w + 12), 8), 2), 32768), 1))
+  # c_cc[VTIME] = 1, c_cc[VMIN] = 0
+  unsafe do
+    mem.write_u8(w + 22, 1)
+    mem.write_u8(w + 23, 0)
+  end
+  _ = ioctl(0, 21506, w)
+  ()
+end
+
+restore_mode :: fn(saved: String) do
+  buf = unsafe do mem.buffer(64) end
+  unsafe do
+    mem.copy_to(mem.addr_of(buf), saved)
+  end
+  _ = ioctl(0, 21506, unsafe do mem.addr_of(buf) end)
+  ()
+end
+
+## (rows, columns) of the terminal.
+window_size :: fn() -> (i64, i64) do
+  buf = unsafe do mem.buffer(16) end
+  a = unsafe do mem.addr_of(buf) end
+  r = ioctl(1, 21523, a)
+  rows = Option.unwrap_or(Num.to_i64(unsafe do mem.read_u16(a) end), 0)
+  cols = Option.unwrap_or(Num.to_i64(unsafe do mem.read_u16(a + 2) end), 0)
+  if r < 0 or rows < 3 or cols < 10 do
+    (24, 80)
+  else
+    (rows, cols)
+  end
+end
+
+## One byte from the keyboard, or -1 if none arrived in time.
+read_byte :: fn(kb: String) -> i64 do
+  unsafe do
+    a = mem.addr_of(kb)
+    n = sys.syscall3(0, 0, to_i(a), 1)
+    if n == 1 do
+      Option.unwrap_or(Num.to_i64(mem.read_u8(a)), 0)
+    else
+      0 - 1
+    end
+  end
+end
+
+## Key codes above 255.
+key_left :: fn() -> i64 do 1000 end
+key_right :: fn() -> i64 do 1001 end
+key_up :: fn() -> i64 do 1002 end
+key_down :: fn() -> i64 do 1003 end
+key_del :: fn() -> i64 do 1004 end
+key_home :: fn() -> i64 do 1005 end
+key_end :: fn() -> i64 do 1006 end
+key_pgup :: fn() -> i64 do 1007 end
+key_pgdn :: fn() -> i64 do 1008 end
+
+## Wait for a key. Escape sequences become the codes above.
+read_key :: fn(kb: String) -> i64 do
+  c = read_byte(kb)
+  if c < 0 do
+    read_key(kb)
+  else if c != 27 do
+    c
+  else
+    s0 = read_byte(kb)
+    s1 = read_byte(kb)
+    if s0 < 0 or s1 < 0 do
+      27
+    else if s0 == 91 do
+      if s1 >= 48 and s1 <= 57 do
+        s2 = read_byte(kb)
+        if s2 != 126 do
+          27
+        else if s1 == 49 or s1 == 55 do
+          key_home()
+        else if s1 == 51 do
+          key_del()
+        else if s1 == 52 or s1 == 56 do
+          key_end()
+        else if s1 == 53 do
+          key_pgup()
+        else if s1 == 54 do
+          key_pgdn()
+        else
+          27
+        end
+      else if s1 == 65 do
+        key_up()
+      else if s1 == 66 do
+        key_down()
+      else if s1 == 67 do
+        key_right()
+      else if s1 == 68 do
+        key_left()
+      else if s1 == 72 do
+        key_home()
+      else if s1 == 70 do
+        key_end()
+      else
+        27
+      end
+    else if s0 == 79 do
+      if s1 == 72 do
+        key_home()
+      else if s1 == 70 do
+        key_end()
+      else
+        27
+      end
+    else
+      27
+    end
+  end
+end
+
+## --- syntax highlighting ------------------------------------------------------------
+
+cera_words :: fn() -> [String] do
+  ["do", "end", "if", "else", "match", "fn", "type", "trait", "impl", "import", "pub", "var", "while", "for", "in", "break", "continue", "unsafe", "defer", "true", "false", "and", "or", "not"]
+end
+
+c_words :: fn() -> [String] do
+  ["if", "else", "for", "while", "do", "switch", "case", "break", "continue", "return", "struct", "union", "enum", "typedef", "static", "const", "sizeof", "int", "long", "double", "float", "char", "unsigned", "signed", "void", "fn", "let", "mut", "pub", "use", "impl", "match", "loop"]
+end
+
+letters :: fn() -> String do
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+end
+
+digits :: fn() -> String do
+  "0123456789"
+end
+
+## How a file is highlighted, decided by its name: (comment opener, keywords).
+language :: fn(file: String) -> (String, [String]) do
+  if String.ends_with(file, ".cera") do
+    ("#", cera_words())
+  else if String.ends_with(file, ".c") or String.ends_with(file, ".h") or String.ends_with(file, ".rs") do
+    ("//", c_words())
+  else
+    ("", [])
+  end
+end
+
+colour_code :: fn(cls: i64) -> String do
+  if cls == 1 do "\e[36m"
+  else if cls == 2 do "\e[35m"
+  else if cls == 3 do "\e[31m"
+  else if cls == 4 do "\e[33m"
+  else "\e[39m"
+  end
+end
+
+## The part of `line` from column `start`, `width` columns wide, with colour codes.
+## Classes: 0 plain, 1 comment, 2 string, 3 number, 4 keyword.
+highlight :: fn(line: String, start: i64, width: i64, comment: String, words: [String]) -> String do
+  n = len_of(line)
+  cn = len_of(comment)
+  var i = 0
+  var quote = ""
+  var cur = 0
+  var acc = []
+  while i < n do
+    c = sub(line, i, 1)
+    var j = i + 1
+    var cls = 0
+    if quote != "" do
+      cls := 2
+      if c == "\\" do
+        j := lo(i + 2, n)
+      else if c == quote do
+        quote := ""
+      end
+    else if cn > 0 and sub(line, i, cn) == comment do
+      cls := 1
+      j := n
+    else if c == "\"" do
+      quote := c
+      cls := 2
+    else if String.contains(digits(), c) do
+      cls := 3
+      while j < n and String.contains("0123456789._xabcdefABCDEF", sub(line, j, 1)) do
+        j := j + 1
+      end
+    else if String.contains(letters(), c) do
+      while j < n and (String.contains(letters(), sub(line, j, 1)) or String.contains(digits(), sub(line, j, 1))) do
+        j := j + 1
+      end
+      if List.contains(words, sub(line, i, j - i)) do
+        cls := 4
+      end
+    end
+    a = hi(i, start)
+    b = lo(j, start + width)
+    if a < b do
+      if cls != cur do
+        acc := [colour_code(cls) | acc]
+        cur := cls
+      end
+      acc := [sub(line, a, b - a) | acc]
+    end
+    i := j
+  end
+  if cur != 0 do
+    acc := ["\e[39m" | acc]
+  end
+  String.concat(List.reverse(acc))
+end
+
+## --- drawing ------------------------------------------------------------------------
+
+text_row :: fn(lines: [String], y: i64, start: i64, width: i64, comment: String, words: [String]) -> String do
+  if y >= to_i(List.length(lines)) do
+    "~\e[K\r\n"
+  else
+    String.concat([highlight(line_at(lines, y), start, width, comment, words), "\e[K\r\n"])
+  end
+end
+
+text_rows :: fn(lines: [String], first: i64, count: i64, start: i64, width: i64, comment: String, words: [String]) -> String do
+  String.concat(List.map(List.range(0, count), fn(r) -> text_row(lines, first + r, start, width, comment, words) end))
+end
+
+pad_between :: fn(left: String, right: String, width: i64) -> String do
+  l = sub(left, 0, width)
+  room = width - len_of(l)
+  if room >= len_of(right) do
+    String.concat([l, String.repeat(" ", to_u(room - len_of(right))), right])
+  else
+    String.concat([l, String.repeat(" ", to_u(room))])
+  end
+end
+
+## The whole screen as one string: text, status bar, message bar, cursor position.
+frame :: fn(lines: [String], rowoff: i64, coloff: i64, cx: i64, cy: i64, rows: i64, cols: i64, file: String, dirty: bool, msg: String) -> String do
+  lang = language(file)
+  body = match lang do
+    (comment, words) -> text_rows(lines, rowoff, rows - 2, coloff, cols, comment, words)
+  end
+  name = if file == "" do "[No Name]" else sub(file, 0, 20) end
+  flag = if dirty do " (modified)" else "" end
+  left = String.concat([name, " - ", show(List.length(lines)), " lines", flag])
+  right = String.concat([show(cy + 1), "/", show(List.length(lines))])
+  status = String.concat(["\e[7m", pad_between(left, right, cols), "\e[m\r\n"])
+  message = String.concat([sub(msg, 0, cols), "\e[K"])
+  at = String.concat(["\e[", show(cy - rowoff + 1), ";", show(cx - coloff + 1), "H"])
+  String.concat(["\e[?25l\e[H", body, status, message, at, "\e[?25h"])
+end
+
+## --- search -------------------------------------------------------------------------
+
+## First position of `q` in `s` at or after `from`, or -1.
+index_from :: fn(s: String, q: String, from: i64) -> i64 do
+  m = len_of(q)
+  last = len_of(s) - m
+  var i = from
+  var found = 0 - 1
+  while found < 0 and i <= last do
+    if sub(s, i, m) == q do
+      found := i
+    end
+    i := i + 1
+  end
+  found
+end
+
+## Last position of `q` in `s` that starts before `before`, or -1.
+index_before :: fn(s: String, q: String, before: i64) -> i64 do
+  m = len_of(q)
+  var i = lo(before - 1, len_of(s) - m)
+  var found = 0 - 1
+  while found < 0 and i >= 0 do
+    if sub(s, i, m) == q do
+      found := i
+    end
+    i := i - 1
+  end
+  found
+end
+
+## The next match going `dir` (1 forward, -1 backward) from (y, x), wrapping around the file.
+## The match at (y, x) itself is skipped when `skip` is true.
+search :: fn(lines: [String], q: String, y: i64, x: i64, dir: i64, skip: bool) -> Option<(i64, i64)> do
+  total = to_i(List.length(lines))
+  if q == "" or total == 0 do
+    None
+  else
+    var k = 0
+    var result = None
+    while k <= total and Option.is_none(result) do
+      row = (y + dir * k + total * 2) % total
+      s = line_at(lines, row)
+      col = if dir == 1 do
+        if k == 0 do index_from(s, q, if skip do x + 1 else x end) else index_from(s, q, 0) end
+      else
+        if k == 0 do index_before(s, q, x) else index_before(s, q, len_of(s) + 1) end
+      end
+      if col >= 0 do
+        result := Some((row, col))
+      end
+      k := k + 1
+    end
+    result
+  end
+end
+
+## --- files --------------------------------------------------------------------------
+
+load :: fn(caps: Caps, file: String) -> [String] do
+  match fs.read_to_string(caps.fs, file) do
+    Ok(text) -> do
+      parts = String.lines(String.replace(text, "\t", "    "))
+      if List.is_empty(parts) do [""] else parts end
+    end
+    Err(_) -> [""]
+  end
+end
+
+save :: fn(caps: Caps, file: String, lines: [String]) -> String do
+  text = String.concat([String.join(lines, "\n"), "\n"])
+  match fs.write_string(caps.fs, file, text) do
+    Ok(_) -> String.concat([show(String.length(text)), " bytes written to disk"])
+    Err(e) -> String.concat(["Can't save! ", e.message])
+  end
+end
+
+## --- the editor ---------------------------------------------------------------------
+
+run :: fn(caps: Caps, kb: String, rows: i64, cols: i64, file0: String) do
+  var lines = if file0 == "" do [""] else load(caps, file0) end
+  var file = file0
+  var cx = 0
+  var cy = 0
+  var rowoff = 0
+  var coloff = 0
+  var dirty = false
+  var msg = "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find"
+  var quit_times = 3
+  var mode = 0
+  var input = ""
+  var sx = 0
+  var sy = 0
+  var running = true
+  textrows = rows - 2
+  while running do
+    if cy < rowoff do rowoff := cy end
+    if cy >= rowoff + textrows do rowoff := cy - textrows + 1 end
+    if cx < coloff do coloff := cx end
+    if cx >= coloff + cols do coloff := cx - cols + 1 end
+    # Draw. Everything built here is temporary, so rewind the heap afterwards.
+    mark = unsafe do mem.mark() end
+    shown = if mode == 1 do
+      String.concat(["Search: ", input, "  (Esc cancel, Enter keep, arrows next/prev)"])
+    else if mode == 2 do
+      String.concat(["Save as: ", input, "  (Esc cancel)"])
+    else
+      msg
+    end
+    write_all(frame(lines, rowoff, coloff, cx, cy, rows, cols, file, dirty, shown))
+    unsafe do
+      mem.reset(mark)
+    end
+    c = read_key(kb)
+    n = to_i(List.length(lines))
+    line = line_at(lines, cy)
+    ll = len_of(line)
+    if mode != 0 do
+      # A prompt in the message bar.
+      if c == 27 do
+        if mode == 1 do
+          cx := sx
+          cy := sy
+        end
+        mode := 0
+        input := ""
+        msg := ""
+      else if c == 13 do
+        if mode == 2 do
+          if input != "" do
+            file := input
+            msg := save(caps, file, lines)
+            dirty := false
+          else
+            msg := "Save aborted"
+          end
+        else
+          msg := ""
+        end
+        mode := 0
+        input := ""
+      else if (c == 127 or c == 8) and mode != 0 do
+        input := sub(input, 0, len_of(input) - 1)
+        if mode == 1 do
+          match search(lines, input, sy, sx, 1, false) do
+            Some((y, x)) -> do
+              cy := y
+              cx := x
+            end
+            None -> do
+              cy := sy
+              cx := sx
+            end
+          end
+        end
+      else if c >= 32 and c <= 126 do
+        input := String.concat([input, sub(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", c - 32, 1)])
+        if mode == 1 do
+          match search(lines, input, sy, sx, 1, false) do
+            Some((y, x)) -> do
+              cy := y
+              cx := x
+            end
+            None -> do
+              cy := sy
+              cx := sx
+            end
+          end
+        end
+      else if mode == 1 and (c == key_right() or c == key_down()) do
+        match search(lines, input, cy, cx, 1, true) do
+          Some((y, x)) -> do
+            cy := y
+            cx := x
+          end
+          None -> do
+            msg := ""
+          end
+        end
+      else if mode == 1 and (c == key_left() or c == key_up()) do
+        match search(lines, input, cy, cx, 0 - 1, true) do
+          Some((y, x)) -> do
+            cy := y
+            cx := x
+          end
+          None -> do
+            msg := ""
+          end
+        end
+      end
+    else if c == 17 do
+      if dirty and quit_times > 0 do
+        msg := String.concat(["WARNING!!! File has unsaved changes. Press Ctrl-Q ", show(quit_times), " more times to quit."])
+        quit_times := quit_times - 1
+      else
+        running := false
+      end
+    else if c == 19 do
+      if file == "" do
+        mode := 2
+        input := ""
+      else
+        msg := save(caps, file, lines)
+        dirty := false
+      end
+      quit_times := 3
+    else if c == 6 do
+      mode := 1
+      input := ""
+      sx := cx
+      sy := cy
+      quit_times := 3
+    else if c == 13 do
+      lines := insert_line(set_line(lines, cy, sub(line, 0, cx)), cy + 1, sub(line, cx, ll))
+      cy := cy + 1
+      cx := 0
+      dirty := true
+      quit_times := 3
+    else if c == 127 or c == 8 or c == key_del() do
+      if c == key_del() and cx < ll do
+        lines := set_line(lines, cy, String.concat([sub(line, 0, cx), sub(line, cx + 1, ll)]))
+        dirty := true
+      else if c != key_del() and cx > 0 do
+        lines := set_line(lines, cy, String.concat([sub(line, 0, cx - 1), sub(line, cx, ll)]))
+        cx := cx - 1
+        dirty := true
+      else if c != key_del() and cy > 0 do
+        prev = line_at(lines, cy - 1)
+        lines := delete_line(set_line(lines, cy - 1, String.concat([prev, line])), cy)
+        cy := cy - 1
+        cx := len_of(prev)
+        dirty := true
+      else if c == key_del() and cy < n - 1 do
+        lines := delete_line(set_line(lines, cy, String.concat([line, line_at(lines, cy + 1)])), cy + 1)
+        dirty := true
+      end
+      quit_times := 3
+    else if c == key_left() do
+      if cx > 0 do
+        cx := cx - 1
+      else if cy > 0 do
+        cy := cy - 1
+        cx := len_of(line_at(lines, cy))
+      end
+    else if c == key_right() do
+      if cx < ll do
+        cx := cx + 1
+      else if cy < n - 1 do
+        cy := cy + 1
+        cx := 0
+      end
+    else if c == key_up() do
+      if cy > 0 do cy := cy - 1 end
+    else if c == key_down() do
+      if cy < n - 1 do cy := cy + 1 end
+    else if c == key_home() do
+      cx := 0
+    else if c == key_end() do
+      cx := ll
+    else if c == key_pgup() do
+      cy := hi(0, cy - textrows)
+    else if c == key_pgdn() do
+      cy := lo(n - 1, cy + textrows)
+    else if c == 9 or (c >= 32 and c <= 126) do
+      ch = if c == 9 do "    " else sub(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", c - 32, 1) end
+      lines := set_line(lines, cy, String.concat([sub(line, 0, cx), ch, sub(line, cx, ll)]))
+      cx := cx + len_of(ch)
+      dirty := true
+      quit_times := 3
+    end
+    # Keep the cursor on its line after vertical moves.
+    cx := lo(cx, len_of(line_at(lines, cy)))
+  end
+end
+
+main :: fn(caps: Caps) do
+  args = env.args(caps.env)
+  file = Option.unwrap_or(List.head(args), "")
+  saved = unsafe do mem.buffer(64) end
+  if ioctl(0, 21505, unsafe do mem.addr_of(saved) end) < 0 do
+    io.eprintln("kilo needs a terminal on standard input")
+  else
+    original = unsafe do mem.string_from(mem.addr_of(saved), 36) end
+    size = window_size()
+    kb = unsafe do mem.buffer(8) end
+    raw_mode(original)
+    match size do
+      (rows, cols) -> run(caps, kb, rows, cols, file)
+    end
+    restore_mode(original)
+    write_all("\e[2J\e[H")
+  end
+end

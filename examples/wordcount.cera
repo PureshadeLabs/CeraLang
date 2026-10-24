@@ -1,0 +1,58 @@
+import std.io
+import std.fs
+import std.map
+import std.string
+
+count_words :: fn(words: [String]) -> Map<String, i32> do
+  words |> List.fold(Map.new(), fn(counts, w) ->
+    Map.insert(counts, w, Map.get_or(counts, w, 0) + 1)
+  end)
+end
+
+# Most frequent first; ties alphabetical.
+by_count :: fn(a: (String, i32), b: (String, i32)) -> Ordering do
+  match (a, b) do
+    ((wa, na), (wb, nb)) ->
+      if na > nb do Less
+      else if na < nb do Greater
+      else compare(wa, wb)
+      end
+  end
+end
+
+words_of :: fn(text: String) -> [String] do
+  text
+    |> String.to_lower
+    |> String.replace("\n", " ")
+    |> String.replace(",", " ")
+    |> String.replace(".", " ")
+    |> String.split(" ")
+    |> List.filter(fn(w) -> String.length(w) > 0 end)
+end
+
+show_entry :: fn(entry: (String, i32)) -> String do
+  match entry do
+    (word, n) -> String.concat([word, ": ", show(n)])
+  end
+end
+
+run :: fn(caps: Caps, path: String) -> Result<(), Error> do
+  region do
+    text = fs.read_to_string(caps.fs, path)?
+    words_of(text)
+      |> count_words
+      |> Map.to_list
+      |> List.sort_by(by_count)
+      |> List.take(10)
+      |> List.map(show_entry)
+      |> List.map(fn(line) -> io.writeln(caps.console, line) end)
+    Ok(())
+  end
+end
+
+main :: fn(caps: Caps) do
+  match run(caps, "examples/wordcount.cera") do
+    Ok(_) -> ()
+    Err(e) -> io.println(e)
+  end
+end

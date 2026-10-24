@@ -1,0 +1,50 @@
+## Whole files as raw bytes, for loading programs and data that are not text.
+import std.mem
+import std.sys
+import lythos
+
+## Read a whole file. The result may hold any bytes, so use `mem.read_u8` and `mem.string_from`
+## on it rather than text functions, unless you know it is text. `path` is absolute ("/lth/bin/x").
+pub read_bytes :: fn(path: String) -> Result<String, Error> do
+  fd = unsafe do
+    sys.syscall2(22, Option.unwrap_or(Num.to_i64(mem.addr_of(path)), 0), Option.unwrap_or(Num.to_i64(String.length(path)), 0))
+  end
+  match lythos.check(fd) do
+    Err(e) -> Err(e)
+    Ok(h) -> do
+      buf = unsafe do mem.alloc(65536) end
+      result = fill(h, buf, 65536, 0)
+      _ = unsafe do sys.syscall1(25, h) end
+      match result do
+        Err(e) -> Err(e)
+        Ok((addr, len, cap)) -> do
+          out = unsafe do mem.string_from(addr, Option.unwrap_or(Num.to_usize(len), 0)) end
+          unsafe do
+            mem.free(addr, Option.unwrap_or(Num.to_usize(cap), 0))
+          end
+          Ok(out)
+        end
+      end
+    end
+  end
+end
+
+## Read until the file ends, growing the buffer. Returns (buffer address, bytes read, buffer size).
+fill :: fn(fd: i64, buf: usize, cap: i64, len: i64) -> Result<(usize, i64, i64), Error> do
+  grown = if len == cap do
+    unsafe do mem.realloc(buf, Option.unwrap_or(Num.to_usize(cap), 0), Option.unwrap_or(Num.to_usize(cap * 2), 0)) end
+  else
+    buf
+  end
+  room = if len == cap do cap * 2 else cap end
+  at = Option.unwrap_or(Num.to_i64(grown), 0) + len
+  n = unsafe do sys.syscall3(23, fd, at, room - len) end
+  match lythos.check(n) do
+    Err(e) -> Err(e)
+    Ok(got) -> if got == 0 do
+      Ok((grown, len, room))
+    else
+      fill(fd, grown, room, len + got)
+    end
+  end
+end

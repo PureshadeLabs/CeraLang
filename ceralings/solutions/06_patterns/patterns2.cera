@@ -1,0 +1,10 @@
+# patterns2: List tails
+# Book: chapter 8
+
+describe_list :: fn(xs: [i32]) -> String do
+  match xs do
+    [] -> "empty"
+    [x] -> "one element"
+    [x, y | rest] -> "two or more"
+  end
+end

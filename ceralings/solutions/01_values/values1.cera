@@ -1,0 +1,10 @@
+# values1: Bindings
+# Book: chapter 3
+
+# Give each name a value of the kind described.
+main :: fn() do
+  answer = 42
+  pi = 3.14159
+  ready = true
+  greeting = "hello"
+end

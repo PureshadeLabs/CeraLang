@@ -1,0 +1,55 @@
+## Userspace drivers: a Device capability gives one PCI device (config space, registers, DMA, interrupt).
+import std.mem
+import std.sys
+import lythos
+
+## A claimed device.
+pub Device :: type { handle: i64 }
+
+## Wrap a Device capability handle received from the task that claimed it.
+pub from_handle :: fn(handle: i64) -> Device do
+  Device{handle: handle}
+end
+
+## Claim a registered device by name (only the task holding the Rollback capability can).
+pub claim :: fn(name: String) -> Result<Device, Error> do
+  r = unsafe do
+    sys.syscall2(61, Option.unwrap_or(Num.to_i64(mem.addr_of(name)), 0), Option.unwrap_or(Num.to_i64(String.length(name)), 0))
+  end
+  match lythos.check(r) do
+    Ok(h) -> Ok(Device{handle: h})
+    Err(e) -> Err(e)
+  end
+end
+
+## One 32-bit word of PCI config space.
+pub config_read :: fn(d: Device, offset: i64) -> Result<i64, Error> do
+  lythos.check(unsafe do sys.syscall2(62, d.handle, offset) end)
+end
+
+## Map a register window (BAR) at `addr`, uncached. Returns its length in bytes.
+pub map_registers :: fn(d: Device, bar: i64, addr: i64) -> Result<i64, Error> do
+  lythos.check(unsafe do sys.syscall3(63, d.handle, bar, addr) end)
+end
+
+## Allocate a zeroed contiguous buffer for the device at `addr`. Returns the physical address
+## the device should be given.
+pub dma_alloc :: fn(d: Device, addr: i64, size: i64) -> Result<u64, Error> do
+  slot = unsafe do mem.buffer(8) end
+  slot_addr = Option.unwrap_or(Num.to_i64(unsafe do mem.addr_of(slot) end), 0)
+  r = unsafe do sys.syscall4(64, d.handle, addr, size, slot_addr) end
+  match lythos.check_unit(r) do
+    Ok(_) -> Ok(unsafe do mem.read_u64(mem.addr_of(slot)) end)
+    Err(e) -> Err(e)
+  end
+end
+
+## Wait until the device raises its interrupt.
+pub wait_irq :: fn(d: Device) -> Result<(), Error> do
+  lythos.check_unit(unsafe do sys.syscall1(65, d.handle) end)
+end
+
+## Acknowledge the interrupt after the device has been serviced.
+pub ack_irq :: fn(d: Device) -> Result<(), Error> do
+  lythos.check_unit(unsafe do sys.syscall1(66, d.handle) end)
+end

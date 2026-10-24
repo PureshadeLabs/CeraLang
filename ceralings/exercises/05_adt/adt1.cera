@@ -1,0 +1,17 @@
+# adt1: Closing a type
+# Book: chapter 7
+# I AM NOT DONE
+
+Shape :: type
+  | Circle(r: f64)
+  | Rect(w: f64, h: f64)
+
+area :: fn(s: Shape) -> f64 do
+  match s do
+    Circle(r) -> 3.14159 * r * r
+    Rect(w, h) -> w * h
+  end
+end
+
+# HINT
+# A variant type declaration ends with `end`, just like a block.

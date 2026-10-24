@@ -1,0 +1,16 @@
+[package]
+name = "cera-native"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }
+cranelift-codegen = "0.115"
+cranelift-frontend = "0.115"
+target-lexicon = "0.12"
+
+[dev-dependencies]
+cera-eval = { path = "../cera-eval" }

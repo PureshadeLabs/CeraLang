@@ -1,0 +1,30 @@
+# kote's test helpers: `import kote.test`, then `test.equal(a, b)` and friends.
+# Test functions return `Result<(), String>`; use `?` to stop at the first failure.
+
+pub pass :: fn() -> Result<(), String> do
+  Ok(())
+end
+
+pub fail :: fn(message: String) -> Result<(), String> do
+  Err(message)
+end
+
+pub check :: fn(condition: bool, message: String) -> Result<(), String> do
+  if condition do Ok(()) else Err(message) end
+end
+
+pub equal :: fn<T: Show>(expected: T, actual: T) -> Result<(), String> do
+  if expected == actual do
+    Ok(())
+  else
+    Err(String.concat(["assertion failed: expected ", show(expected), ", found ", show(actual)]))
+  end
+end
+
+pub not_equal :: fn<T: Show>(left: T, right: T) -> Result<(), String> do
+  if left != right do
+    Ok(())
+  else
+    Err(String.concat(["assertion failed: both sides are ", show(left)]))
+  end
+end

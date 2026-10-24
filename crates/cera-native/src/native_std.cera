@@ -1,0 +1,2793 @@
+# The part of the standard library the native backend compiles from Cera source.
+# Functions are named `<module>_<name>`; bodiless functions are compiler intrinsics.
+
+__panic :: fn<T>(message: String) -> T
+__str_alloc :: fn(n: usize) -> String
+__str_len :: fn(s: String) -> usize
+__byte :: fn(s: String, i: usize) -> u8
+__set_byte :: fn(s: String, i: usize, b: u8)
+__copy :: fn(dst: String, doff: usize, src: String, soff: usize, n: usize)
+__i64_of_usize :: fn(x: usize) -> i64
+__usize_of_i64 :: fn(x: i64) -> usize
+__i64_of_u8 :: fn(x: u8) -> i64
+__u8_of_i64 :: fn(x: i64) -> u8
+__u8_of_u64 :: fn(x: u64) -> u8
+__u64_of_u8 :: fn(x: u8) -> u64
+__u64_of_i64 :: fn(x: i64) -> u64
+__char_of_i64 :: fn(x: i64) -> char
+__u64_of_f64 :: fn(x: f64) -> u64
+__i64_of_i32 :: fn(x: i32) -> i64
+__sqrt :: fn(x: f64) -> f64
+__floor :: fn(x: f64) -> f64
+__ceil :: fn(x: f64) -> f64
+__trunc :: fn(x: f64) -> f64
+__f32_bits :: fn(x: f64) -> u64
+__i64_of_u64 :: fn(x: u64) -> i64
+__syscall :: fn(n: i64, a: i64, b: i64, c: i64) -> i64
+__lythos :: fn() -> i64
+__syscall6 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64
+__i64_of_dir :: fn(d: Dir) -> i64
+__peek16 :: fn(addr: i64) -> u64
+__peek32 :: fn(addr: i64) -> u64
+__poke8 :: fn(addr: i64, v: i64)
+__poke16 :: fn(addr: i64, v: i64)
+__poke32 :: fn(addr: i64, v: i64)
+__u16_of_u64 :: fn(x: u64) -> u16
+__u32_of_u64 :: fn(x: u64) -> u32
+__i64_of_u16 :: fn(x: u16) -> i64
+__i64_of_u32 :: fn(x: u32) -> i64
+__dir_of_i64 :: fn(x: i64) -> Dir
+__peek :: fn(addr: i64) -> i64
+__peek_byte :: fn(addr: i64) -> u8
+__poke :: fn(addr: i64, v: i64)
+__sp :: fn() -> i64
+__heap_base :: fn() -> i64
+__global_get :: fn(i: i64) -> i64
+__global_set :: fn(i: i64, v: i64)
+__payload :: fn(s: String) -> i64
+__i64_of_string :: fn(s: String) -> i64
+__string_of_i64 :: fn(x: i64) -> String
+__map_of_list :: fn<K, V>(xs: [(K, V)]) -> Map<K, V>
+__list_of_map :: fn<K, V>(m: Map<K, V>) -> [(K, V)]
+__set_of_list :: fn<T>(xs: [T]) -> Set<T>
+__list_of_set :: fn<T>(s: Set<T>) -> [T]
+__i64_of_char :: fn(x: char) -> i64
+__word_of_value :: fn<T>(x: T) -> i64
+__value_of_word :: fn<T>(w: i64) -> T
+__array_of_word :: fn<T>(w: i64) -> Array<T>
+__word_of_array :: fn<T>(a: Array<T>) -> i64
+
+list_rev_acc :: fn<T>(xs: [T], acc: [T]) -> [T] do
+  match xs do
+    [] -> acc
+    [x | rest] -> list_rev_acc(rest, [x | acc])
+  end
+end
+
+list_reverse :: fn<T>(xs: [T]) -> [T] do
+  list_rev_acc(xs, [])
+end
+
+list_map_acc :: fn<A, B>(xs: [A], f: fn(A) -> B, acc: [B]) -> [B] do
+  match xs do
+    [] -> acc
+    [x | rest] -> list_map_acc(rest, f, [f(x) | acc])
+  end
+end
+
+list_map :: fn<A, B>(xs: [A], f: fn(A) -> B) -> [B] do
+  list_rev_acc(list_map_acc(xs, f, []), [])
+end
+
+list_filter_acc :: fn<A>(xs: [A], keep: fn(A) -> bool, acc: [A]) -> [A] do
+  match xs do
+    [] -> acc
+    [x | rest] -> if keep(x) do list_filter_acc(rest, keep, [x | acc]) else list_filter_acc(rest, keep, acc) end
+  end
+end
+
+list_filter :: fn<A>(xs: [A], keep: fn(A) -> bool) -> [A] do
+  list_rev_acc(list_filter_acc(xs, keep, []), [])
+end
+
+list_fold :: fn<A, B>(xs: [A], init: B, f: fn(B, A) -> B) -> B do
+  match xs do
+    [] -> init
+    [x | rest] -> list_fold(rest, f(init, x), f)
+  end
+end
+
+list_sum_acc :: fn<T: Add>(xs: [T], acc: T) -> T do
+  match xs do
+    [] -> acc
+    [x | rest] -> list_sum_acc(rest, acc + x)
+  end
+end
+
+list_sum :: fn<T: Add>(xs: [T]) -> T do
+  match xs do
+    [] -> __panic("`sum` of an empty list has no type to start from; use `fold` with a start value")
+    [x | rest] -> list_sum_acc(rest, x)
+  end
+end
+
+list_length_acc :: fn<T>(xs: [T], n: usize) -> usize do
+  match xs do
+    [] -> n
+    [_ | rest] -> list_length_acc(rest, n + 1)
+  end
+end
+
+list_length :: fn<T>(xs: [T]) -> usize do
+  list_length_acc(xs, 0)
+end
+
+list_append :: fn<T>(front: [T], back: [T]) -> [T] do
+  list_rev_acc(list_reverse(front), back)
+end
+
+list_head :: fn<T>(xs: [T]) -> Option<T> do
+  match xs do
+    [] -> None
+    [x | _] -> Some(x)
+  end
+end
+
+list_tail :: fn<T>(xs: [T]) -> Option<[T]> do
+  match xs do
+    [] -> None
+    [_ | rest] -> Some(rest)
+  end
+end
+
+list_get :: fn<T>(xs: [T], index: usize) -> Option<T> do
+  match xs do
+    [] -> None
+    [x | rest] -> if index == 0 do Some(x) else list_get(rest, index - 1) end
+  end
+end
+
+list_index_at :: fn<T>(xs: [T], i: usize, all: [T], orig: usize) -> T do
+  match xs do
+    [] -> array_fail(__i64_of_usize(orig), __i64_of_usize(list_length(all)), "a list")
+    [x | rest] -> if i == 0 do x else list_index_at(rest, i - 1, all, orig) end
+  end
+end
+
+list_index :: fn<T>(xs: [T], index: usize) -> T do
+  list_index_at(xs, index, xs, index)
+end
+
+list_last :: fn<T>(xs: [T]) -> Option<T> do
+  match xs do
+    [] -> None
+    [x] -> Some(x)
+    [_ | rest] -> list_last(rest)
+  end
+end
+
+list_is_empty :: fn<T>(xs: [T]) -> bool do
+  match xs do
+    [] -> true
+    [_ | _] -> false
+  end
+end
+
+list_take_acc :: fn<T>(xs: [T], n: usize, acc: [T]) -> [T] do
+  if n == 0 do
+    list_rev_acc(acc, [])
+  else
+    match xs do
+      [] -> list_rev_acc(acc, [])
+      [x | rest] -> list_take_acc(rest, n - 1, [x | acc])
+    end
+  end
+end
+
+list_take :: fn<T>(xs: [T], n: usize) -> [T] do
+  list_take_acc(xs, n, [])
+end
+
+list_drop :: fn<T>(xs: [T], n: usize) -> [T] do
+  if n == 0 do
+    xs
+  else
+    match xs do
+      [] -> []
+      [_ | rest] -> list_drop(rest, n - 1)
+    end
+  end
+end
+
+list_concat_acc :: fn<T>(lists: [[T]], acc: [T]) -> [T] do
+  match lists do
+    [] -> acc
+    [l | rest] -> list_concat_acc(rest, list_rev_acc(l, acc))
+  end
+end
+
+list_concat :: fn<T>(lists: [[T]]) -> [T] do
+  list_rev_acc(list_concat_acc(lists, []), [])
+end
+
+list_flat_map :: fn<A, B>(xs: [A], f: fn(A) -> [B]) -> [B] do
+  list_concat(list_map(xs, f))
+end
+
+list_any :: fn<T>(xs: [T], test: fn(T) -> bool) -> bool do
+  match xs do
+    [] -> false
+    [x | rest] -> if test(x) do true else list_any(rest, test) end
+  end
+end
+
+list_all :: fn<T>(xs: [T], test: fn(T) -> bool) -> bool do
+  match xs do
+    [] -> true
+    [x | rest] -> if test(x) do list_all(rest, test) else false end
+  end
+end
+
+list_find :: fn<T>(xs: [T], test: fn(T) -> bool) -> Option<T> do
+  match xs do
+    [] -> None
+    [x | rest] -> if test(x) do Some(x) else list_find(rest, test) end
+  end
+end
+
+list_zip_acc :: fn<A, B>(xs: [A], ys: [B], acc: [(A, B)]) -> [(A, B)] do
+  match xs do
+    [] -> acc
+    [x | xrest] ->
+      match ys do
+        [] -> acc
+        [y | yrest] -> list_zip_acc(xrest, yrest, [(x, y) | acc])
+      end
+  end
+end
+
+list_zip :: fn<A, B>(xs: [A], ys: [B]) -> [(A, B)] do
+  list_rev_acc(list_zip_acc(xs, ys, []), [])
+end
+
+list_range_acc :: fn(low: i64, high: i64, acc: [i64]) -> [i64] do
+  if high <= low do acc else list_range_acc(low, high - 1, [high - 1 | acc]) end
+end
+
+list_range :: fn(low: i64, high: i64) -> [i64] do
+  list_range_acc(low, high, [])
+end
+
+list_contains :: fn<T>(xs: [T], x: T) -> bool do
+  match xs do
+    [] -> false
+    [y | rest] -> if y == x do true else list_contains(rest, x) end
+  end
+end
+
+list_merge :: fn<T>(a: [T], b: [T], less: fn(T, T) -> bool, acc: [T]) -> [T] do
+  match a do
+    [] -> list_rev_acc(acc, b)
+    [x | arest] ->
+      match b do
+        [] -> list_rev_acc(acc, a)
+        [y | brest] ->
+          if less(y, x) do list_merge(a, brest, less, [y | acc]) else list_merge(arest, b, less, [x | acc]) end
+      end
+  end
+end
+
+list_split_at :: fn<T>(xs: [T], n: usize, acc: [T]) -> ([T], [T]) do
+  if n == 0 do
+    (list_rev_acc(acc, []), xs)
+  else
+    match xs do
+      [] -> (list_rev_acc(acc, []), [])
+      [x | rest] -> list_split_at(rest, n - 1, [x | acc])
+    end
+  end
+end
+
+list_msort :: fn<T>(xs: [T], less: fn(T, T) -> bool, n: usize) -> [T] do
+  if n < 2 do
+    xs
+  else
+    half = n / 2
+    match list_split_at(xs, half, []) do
+      (left, right) -> list_merge(list_msort(left, less, half), list_msort(right, less, n - half), less, [])
+    end
+  end
+end
+
+list_sort :: fn<T: Ord>(xs: [T]) -> [T] do
+  list_msort(xs, fn(a, b) -> a < b end, list_length(xs))
+end
+
+list_is_less :: fn(o: Ordering) -> bool do
+  match o do
+    Less -> true
+    _ -> false
+  end
+end
+
+list_sort_by :: fn<T>(xs: [T], compare: fn(T, T) -> Ordering) -> [T] do
+  list_msort(xs, fn(a, b) -> list_is_less(compare(a, b)) end, list_length(xs))
+end
+
+option_is_some :: fn<T>(o: Option<T>) -> bool do
+  match o do
+    Some(_) -> true
+    None -> false
+  end
+end
+
+option_is_none :: fn<T>(o: Option<T>) -> bool do
+  match o do
+    Some(_) -> false
+    None -> true
+  end
+end
+
+option_unwrap_or :: fn<T>(o: Option<T>, default: T) -> T do
+  match o do
+    Some(x) -> x
+    None -> default
+  end
+end
+
+option_map :: fn<A, B>(o: Option<A>, f: fn(A) -> B) -> Option<B> do
+  match o do
+    Some(x) -> Some(f(x))
+    None -> None
+  end
+end
+
+option_and_then :: fn<A, B>(o: Option<A>, f: fn(A) -> Option<B>) -> Option<B> do
+  match o do
+    Some(x) -> f(x)
+    None -> None
+  end
+end
+
+option_ok_or :: fn<T, E>(o: Option<T>, error: E) -> Result<T, E> do
+  match o do
+    Some(x) -> Ok(x)
+    None -> Err(error)
+  end
+end
+
+result_is_ok :: fn<T, E>(r: Result<T, E>) -> bool do
+  match r do
+    Ok(_) -> true
+    Err(_) -> false
+  end
+end
+
+result_is_err :: fn<T, E>(r: Result<T, E>) -> bool do
+  match r do
+    Ok(_) -> false
+    Err(_) -> true
+  end
+end
+
+result_unwrap_or :: fn<T, E>(r: Result<T, E>, default: T) -> T do
+  match r do
+    Ok(x) -> x
+    Err(_) -> default
+  end
+end
+
+result_map :: fn<A, B, E>(r: Result<A, E>, f: fn(A) -> B) -> Result<B, E> do
+  match r do
+    Ok(x) -> Ok(f(x))
+    Err(e) -> Err(e)
+  end
+end
+
+result_map_err :: fn<T, E, F>(r: Result<T, E>, f: fn(E) -> F) -> Result<T, F> do
+  match r do
+    Ok(x) -> Ok(x)
+    Err(e) -> Err(f(e))
+  end
+end
+
+result_and_then :: fn<A, B, E>(r: Result<A, E>, f: fn(A) -> Result<B, E>) -> Result<B, E> do
+  match r do
+    Ok(x) -> f(x)
+    Err(e) -> Err(e)
+  end
+end
+
+result_ok :: fn<T, E>(r: Result<T, E>) -> Option<T> do
+  match r do
+    Ok(x) -> Some(x)
+    Err(_) -> None
+  end
+end
+
+num_min :: fn<T: Ord>(a: T, b: T) -> T do
+  if b < a do b else a end
+end
+
+num_max :: fn<T: Ord>(a: T, b: T) -> T do
+  if a < b do b else a end
+end
+
+num_clamp_hi :: fn<T: Ord>(x: T, high: T) -> T do
+  if high < x do high else x end
+end
+
+num_clamp :: fn<T: Ord>(x: T, low: T, high: T) -> T do
+  if high < low do
+    __panic("`clamp` needs low <= high")
+  else
+    if x < low do low else num_clamp_hi(x, high) end
+  end
+end
+
+# ----- strings (bytes of UTF-8 text; case mapping and trimming are ASCII-only for now) -----
+
+string_length :: fn(s: String) -> usize do
+  __str_len(s)
+end
+
+string_is_empty :: fn(s: String) -> bool do
+  __str_len(s) == 0
+end
+
+string_sub :: fn(s: String, start: usize, len: usize) -> String do
+  dst = __str_alloc(len)
+  __copy(dst, 0, s, start, len)
+  dst
+end
+
+string_eq_from :: fn(a: String, b: String, i: usize, n: usize) -> bool do
+  if i == n do
+    true
+  else
+    if __byte(a, i) == __byte(b, i) do string_eq_from(a, b, i + 1, n) else false end
+  end
+end
+
+string_eq :: fn(a: String, b: String) -> bool do
+  n = __str_len(a)
+  if n == __str_len(b) do string_eq_from(a, b, 0, n) else false end
+end
+
+string_less_from :: fn(a: String, b: String, i: usize, na: usize, nb: usize) -> bool do
+  if i == na do
+    i < nb
+  else
+    if i == nb do
+      false
+    else
+      x = __byte(a, i)
+      y = __byte(b, i)
+      if x == y do string_less_from(a, b, i + 1, na, nb) else x < y end
+    end
+  end
+end
+
+string_less :: fn(a: String, b: String) -> bool do
+  string_less_from(a, b, 0, __str_len(a), __str_len(b))
+end
+
+string_total :: fn(parts: [String], n: usize) -> usize do
+  match parts do
+    [] -> n
+    [p | rest] -> string_total(rest, n + __str_len(p))
+  end
+end
+
+string_fill :: fn(parts: [String], dst: String, off: usize) do
+  match parts do
+    [] -> ()
+    [p | rest] -> do
+      n = __str_len(p)
+      __copy(dst, off, p, 0, n)
+      string_fill(rest, dst, off + n)
+    end
+  end
+end
+
+string_concat :: fn(parts: [String]) -> String do
+  dst = __str_alloc(string_total(parts, 0))
+  string_fill(parts, dst, 0)
+  dst
+end
+
+string_matches_at :: fn(s: String, part: String, i: usize, j: usize, n: usize) -> bool do
+  if j == n do
+    true
+  else
+    if __byte(s, i + j) == __byte(part, j) do string_matches_at(s, part, i, j + 1, n) else false end
+  end
+end
+
+string_find :: fn(s: String, part: String, from: usize) -> i64 do
+  ls = __str_len(s)
+  lp = __str_len(part)
+  if from + lp > ls do
+    -1
+  else
+    if string_matches_at(s, part, from, 0, lp) do __i64_of_usize(from) else string_find(s, part, from + 1) end
+  end
+end
+
+string_contains :: fn(s: String, part: String) -> bool do
+  string_find(s, part, 0) >= 0
+end
+
+string_starts_with :: fn(s: String, prefix: String) -> bool do
+  lp = __str_len(prefix)
+  if lp > __str_len(s) do false else string_matches_at(s, prefix, 0, 0, lp) end
+end
+
+string_ends_with :: fn(s: String, suffix: String) -> bool do
+  ls = __str_len(s)
+  lp = __str_len(suffix)
+  if lp > ls do false else string_matches_at(s, suffix, ls - lp, 0, lp) end
+end
+
+string_split_acc :: fn(s: String, sep: String, start: usize, acc: [String]) -> [String] do
+  idx = string_find(s, sep, start)
+  if idx < 0 do
+    list_rev_acc([string_sub(s, start, __str_len(s) - start) | acc], [])
+  else
+    i = __usize_of_i64(idx)
+    string_split_acc(s, sep, i + __str_len(sep), [string_sub(s, start, i - start) | acc])
+  end
+end
+
+string_split :: fn(s: String, separator: String) -> [String] do
+  if __str_len(separator) == 0 do
+    __panic("`split` needs a non-empty separator; use `chars` to get characters")
+  else
+    string_split_acc(s, separator, 0, [])
+  end
+end
+
+string_join_acc :: fn(parts: [String], sep: String, acc: [String]) -> [String] do
+  match parts do
+    [] -> acc
+    [p] -> [p | acc]
+    [p | rest] -> string_join_acc(rest, sep, [sep, p | acc])
+  end
+end
+
+string_join :: fn(parts: [String], separator: String) -> String do
+  string_concat(list_rev_acc(string_join_acc(parts, separator, []), []))
+end
+
+string_is_space :: fn(b: u8) -> bool do
+  b == 32 or (b >= 9 and b <= 13)
+end
+
+string_trim_start :: fn(s: String, i: usize, n: usize) -> usize do
+  if i < n and string_is_space(__byte(s, i)) do string_trim_start(s, i + 1, n) else i end
+end
+
+string_trim_end :: fn(s: String, start: usize, j: usize) -> usize do
+  if j > start and string_is_space(__byte(s, j - 1)) do string_trim_end(s, start, j - 1) else j end
+end
+
+string_trim :: fn(s: String) -> String do
+  n = __str_len(s)
+  a = string_trim_start(s, 0, n)
+  b = string_trim_end(s, a, n)
+  string_sub(s, a, b - a)
+end
+
+string_map_bytes :: fn(s: String, dst: String, i: usize, n: usize, upper: bool) do
+  if i < n do
+    b = __byte(s, i)
+    c = if upper and b >= 97 and b <= 122 do b - 32 else if not upper and b >= 65 and b <= 90 do b + 32 else b end
+    __set_byte(dst, i, c)
+    string_map_bytes(s, dst, i + 1, n, upper)
+  else
+    ()
+  end
+end
+
+string_to_upper :: fn(s: String) -> String do
+  n = __str_len(s)
+  dst = __str_alloc(n)
+  string_map_bytes(s, dst, 0, n, true)
+  dst
+end
+
+string_to_lower :: fn(s: String) -> String do
+  n = __str_len(s)
+  dst = __str_alloc(n)
+  string_map_bytes(s, dst, 0, n, false)
+  dst
+end
+
+string_replace_acc :: fn(s: String, from: String, to: String, start: usize, acc: [String]) -> [String] do
+  idx = string_find(s, from, start)
+  if idx < 0 do
+    [string_sub(s, start, __str_len(s) - start) | acc]
+  else
+    i = __usize_of_i64(idx)
+    string_replace_acc(s, from, to, i + __str_len(from), [to, string_sub(s, start, i - start) | acc])
+  end
+end
+
+string_replace :: fn(s: String, from: String, to: String) -> String do
+  if __str_len(from) == 0 do s else string_concat(list_rev_acc(string_replace_acc(s, from, to, 0, []), [])) end
+end
+
+string_repeat_fill :: fn(s: String, dst: String, off: usize, times: usize, n: usize) do
+  if times > 0 do
+    __copy(dst, off, s, 0, n)
+    string_repeat_fill(s, dst, off + n, times - 1, n)
+  else
+    ()
+  end
+end
+
+string_repeat :: fn(s: String, times: usize) -> String do
+  n = __str_len(s)
+  if n > 0 and times > 1073741824 / n do
+    __panic("`repeat` would make a string that is too long")
+  else
+    dst = __str_alloc(n * times)
+    string_repeat_fill(s, dst, 0, times, n)
+    dst
+  end
+end
+
+string_lines_acc :: fn(s: String, pos: usize, n: usize, acc: [String]) -> [String] do
+  if pos >= n do
+    list_rev_acc(acc, [])
+  else
+    idx = string_find(s, "\n", pos)
+    stop = if idx < 0 do n else __usize_of_i64(idx) end
+    end_line = if stop > pos and __byte(s, stop - 1) == 13 do stop - 1 else stop end
+    string_lines_acc(s, stop + 1, n, [string_sub(s, pos, end_line - pos) | acc])
+  end
+end
+
+string_lines :: fn(s: String) -> [String] do
+  string_lines_acc(s, 0, __str_len(s), [])
+end
+
+string_cont :: fn(s: String, i: usize) -> i64 do
+  __i64_of_u8(__byte(s, i)) - 128
+end
+
+string_chars_acc :: fn(s: String, i: usize, n: usize, acc: [char]) -> [char] do
+  if i >= n do
+    list_rev_acc(acc, [])
+  else
+    b0 = __i64_of_u8(__byte(s, i))
+    if b0 < 128 do
+      string_chars_acc(s, i + 1, n, [__char_of_i64(b0) | acc])
+    else
+      if b0 < 224 do
+        c = (b0 - 192) * 64 + string_cont(s, i + 1)
+        string_chars_acc(s, i + 2, n, [__char_of_i64(c) | acc])
+      else
+        if b0 < 240 do
+          c = (b0 - 224) * 4096 + string_cont(s, i + 1) * 64 + string_cont(s, i + 2)
+          string_chars_acc(s, i + 3, n, [__char_of_i64(c) | acc])
+        else
+          c = (b0 - 240) * 262144 + string_cont(s, i + 1) * 4096 + string_cont(s, i + 2) * 64 + string_cont(s, i + 3)
+          string_chars_acc(s, i + 4, n, [__char_of_i64(c) | acc])
+        end
+      end
+    end
+  end
+end
+
+string_chars :: fn(s: String) -> [char] do
+  string_chars_acc(s, 0, __str_len(s), [])
+end
+
+string_char_len :: fn(c: char) -> usize do
+  v = __i64_of_char(c)
+  if v < 128 do 1 else if v < 2048 do 2 else if v < 65536 do 3 else 4 end
+end
+
+string_put_char :: fn(dst: String, off: usize, c: char) -> usize do
+  v = __i64_of_char(c)
+  if v < 128 do
+    __set_byte(dst, off, __u8_of_i64(v))
+    1
+  else
+    if v < 2048 do
+      __set_byte(dst, off, __u8_of_i64(192 + v / 64))
+      __set_byte(dst, off + 1, __u8_of_i64(128 + v % 64))
+      2
+    else
+      if v < 65536 do
+        __set_byte(dst, off, __u8_of_i64(224 + v / 4096))
+        __set_byte(dst, off + 1, __u8_of_i64(128 + (v / 64) % 64))
+        __set_byte(dst, off + 2, __u8_of_i64(128 + v % 64))
+        3
+      else
+        __set_byte(dst, off, __u8_of_i64(240 + v / 262144))
+        __set_byte(dst, off + 1, __u8_of_i64(128 + (v / 4096) % 64))
+        __set_byte(dst, off + 2, __u8_of_i64(128 + (v / 64) % 64))
+        __set_byte(dst, off + 3, __u8_of_i64(128 + v % 64))
+        4
+      end
+    end
+  end
+end
+
+string_chars_len :: fn(cs: [char], n: usize) -> usize do
+  match cs do
+    [] -> n
+    [c | rest] -> string_chars_len(rest, n + string_char_len(c))
+  end
+end
+
+string_chars_fill :: fn(cs: [char], dst: String, off: usize) do
+  match cs do
+    [] -> ()
+    [c | rest] -> string_chars_fill(rest, dst, off + string_put_char(dst, off, c))
+  end
+end
+
+string_from_chars :: fn(chars: [char]) -> String do
+  dst = __str_alloc(string_chars_len(chars, 0))
+  string_chars_fill(chars, dst, 0)
+  dst
+end
+
+string_from_char :: fn(c: char) -> String do
+  string_from_chars([c])
+end
+
+string_slice_ok :: fn(s: String, i: usize) -> bool do
+  if i == 0 or i == __str_len(s) do
+    true
+  else
+    if i > __str_len(s) do false else string_cont(s, i) < 0 or string_cont(s, i) >= 64 end
+  end
+end
+
+string_slice :: fn(s: String, start: usize, length: usize) -> Option<String> do
+  n = __str_len(s)
+  if start > n or length > n - start do
+    None
+  else
+    if string_slice_ok(s, start) and string_slice_ok(s, start + length) do Some(string_sub(s, start, length)) else None end
+  end
+end
+
+string_digits :: fn(n: u64, acc: usize) -> usize do
+  if n < 10 do acc else string_digits(n / 10, acc + 1) end
+end
+
+string_fill_digits :: fn(s: String, n: u64, i: usize) do
+  __set_byte(s, i - 1, __u8_of_u64(n % 10 + 48))
+  if n >= 10 do string_fill_digits(s, n / 10, i - 1) else () end
+end
+
+string_from_u64 :: fn(n: u64) -> String do
+  len = string_digits(n, 1)
+  s = __str_alloc(len)
+  string_fill_digits(s, n, len)
+  s
+end
+
+string_from_i64 :: fn(n: i64) -> String do
+  if n >= 0 do
+    string_from_u64(__u64_of_i64(n))
+  else
+    m = __u64_of_i64(0 - (n + 1))
+    mag = m + 1
+    len = string_digits(mag, 1) + 1
+    s = __str_alloc(len)
+    string_fill_digits(s, mag, len)
+    __set_byte(s, 0, 45)
+    s
+  end
+end
+
+# `{:?}`-style quoting of one byte: returns the escape text, or the empty string to copy it as is.
+string_escape :: fn(b: u8, quote: u8) -> String do
+  if b == quote do
+    if quote == 34 do "\\\"" else "\\'" end
+  else
+    if b == 92 do
+      "\\\\"
+    else
+      if b == 10 do
+        "\\n"
+      else
+        if b == 13 do
+          "\\r"
+        else
+          if b == 9 do
+            "\\t"
+          else
+            if b == 0 do
+              "\\0"
+            else
+              if b < 32 or b == 127 do
+                string_concat(["\\u{", string_from_u64(__u64_of_u8(b)), "}"])
+              else
+                ""
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+string_quote_acc :: fn(s: String, i: usize, n: usize, run: usize, quote: u8, acc: [String]) -> [String] do
+  if i >= n do
+    [string_sub(s, run, i - run) | acc]
+  else
+    b = __byte(s, i)
+    e = string_escape(b, quote)
+    if __str_len(e) == 0 do
+      string_quote_acc(s, i + 1, n, run, quote, acc)
+    else
+      string_quote_acc(s, i + 1, n, i + 1, quote, [e, string_sub(s, run, i - run) | acc])
+    end
+  end
+end
+
+string_quote_with :: fn(s: String, quote: u8, q: String) -> String do
+  parts = string_quote_acc(s, 0, __str_len(s), 0, quote, [q])
+  string_concat(list_rev_acc([q | parts], []))
+end
+
+string_quote :: fn(s: String) -> String do
+  string_quote_with(s, 34, "\"")
+end
+
+string_quote_char :: fn(c: char) -> String do
+  string_quote_with(string_from_char(c), 39, "'")
+end
+
+show_items :: fn<T>(xs: [T], f: fn(T, [String]) -> [String], first: bool, acc: [String]) -> [String] do
+  match xs do
+    [] -> acc
+    [x | rest] -> show_items(rest, f, false, f(x, if first do acc else [", " | acc] end))
+  end
+end
+
+show_done :: fn(acc: [String]) -> String do
+  string_concat(list_rev_acc(acc, []))
+end
+
+# ----- floats: shortest round-trip digits (Burger & Dybvig free-format with bignums), Rust `{:?}` layout -----
+# A bignum is a little-endian list of 32-bit limbs held in u64s, without high zero limbs.
+
+big_strip :: fn(rev: [u64]) -> [u64] do
+  match rev do
+    [] -> []
+    [x | rest] -> if x == 0 do big_strip(rest) else list_rev_acc(rev, []) end
+  end
+end
+
+big_from :: fn(x: u64) -> [u64] do
+  big_strip([x / 4294967296, x % 4294967296])
+end
+
+big_mul_acc :: fn(a: [u64], k: u64, carry: u64, acc: [u64]) -> [u64] do
+  match a do
+    [] -> if carry == 0 do list_rev_acc(acc, []) else list_rev_acc([carry | acc], []) end
+    [x | rest] -> do
+      t = x * k + carry
+      big_mul_acc(rest, k, t / 4294967296, [t % 4294967296 | acc])
+    end
+  end
+end
+
+big_mul :: fn(a: [u64], k: u64) -> [u64] do
+  if k == 0 do [] else big_mul_acc(a, k, 0, []) end
+end
+
+big_add_acc :: fn(a: [u64], b: [u64], carry: u64, acc: [u64]) -> [u64] do
+  match a do
+    [] ->
+      match b do
+        [] -> if carry == 0 do list_rev_acc(acc, []) else list_rev_acc([carry | acc], []) end
+        [y | yr] -> do
+          t = y + carry
+          big_add_acc([], yr, t / 4294967296, [t % 4294967296 | acc])
+        end
+      end
+    [x | xr] ->
+      match b do
+        [] -> do
+          t = x + carry
+          big_add_acc(xr, [], t / 4294967296, [t % 4294967296 | acc])
+        end
+        [y | yr] -> do
+          t = x + y + carry
+          big_add_acc(xr, yr, t / 4294967296, [t % 4294967296 | acc])
+        end
+      end
+  end
+end
+
+big_add :: fn(a: [u64], b: [u64]) -> [u64] do
+  big_add_acc(a, b, 0, [])
+end
+
+big_sub_acc :: fn(a: [u64], b: [u64], borrow: u64, acc: [u64]) -> [u64] do
+  match a do
+    [] -> big_strip(acc)
+    [x | xr] ->
+      match b do
+        [] -> do
+          t = x + 4294967296 - borrow
+          big_sub_acc(xr, [], if t < 4294967296 do 1 else 0 end, [t % 4294967296 | acc])
+        end
+        [y | yr] -> do
+          t = x + 4294967296 - y - borrow
+          big_sub_acc(xr, yr, if t < 4294967296 do 1 else 0 end, [t % 4294967296 | acc])
+        end
+      end
+  end
+end
+
+big_sub :: fn(a: [u64], b: [u64]) -> [u64] do
+  big_sub_acc(a, b, 0, [])
+end
+
+big_cmp_rev :: fn(a: [u64], b: [u64]) -> i64 do
+  match a do
+    [] -> 0
+    [x | xr] ->
+      match b do
+        [] -> 0
+        [y | yr] -> if x < y do -1 else if x > y do 1 else big_cmp_rev(xr, yr) end
+      end
+  end
+end
+
+big_cmp :: fn(a: [u64], b: [u64]) -> i64 do
+  la = list_length(a)
+  lb = list_length(b)
+  if la < lb do
+    -1
+  else if la > lb do
+    1
+  else
+    big_cmp_rev(list_rev_acc(a, []), list_rev_acc(b, []))
+  end
+end
+
+big_p2 :: fn(bits: i64, acc: u64) -> u64 do
+  if bits <= 0 do acc else big_p2(bits - 1, acc * 2) end
+end
+
+big_zeros :: fn(n: i64, a: [u64]) -> [u64] do
+  if n <= 0 do a else big_zeros(n - 1, [0 | a]) end
+end
+
+big_shl :: fn(a: [u64], n: i64) -> [u64] do
+  match a do
+    [] -> []
+    _ -> big_zeros(n / 32, big_mul(a, big_p2(n % 32, 1)))
+  end
+end
+
+big_mul10 :: fn(a: [u64], n: i64) -> [u64] do
+  if n <= 0 do a else big_mul10(big_mul(a, 10), n - 1) end
+end
+
+big_divdigit :: fn(r: [u64], s: [u64], d: u64) -> ([u64], u64) do
+  if big_cmp(r, s) >= 0 do big_divdigit(big_sub(r, s), s, d + 1) else (r, d) end
+end
+
+float_gen :: fn(r: [u64], s: [u64], mp: [u64], mm: [u64], incl: bool, acc: [u64]) -> [u64] do
+  mp10 = big_mul(mp, 10)
+  mm10 = big_mul(mm, 10)
+  match big_divdigit(big_mul(r, 10), s, 0) do
+    (rem, d) -> do
+      c1 = big_cmp(rem, mm10)
+      c2 = big_cmp(big_add(rem, mp10), s)
+      tc1 = if incl do c1 <= 0 else c1 < 0 end
+      tc2 = if incl do c2 >= 0 else c2 > 0 end
+      if not tc1 and not tc2 do
+        float_gen(rem, s, mp10, mm10, incl, [d | acc])
+      else if tc1 and not tc2 do
+        list_rev_acc([d | acc], [])
+      else if not tc1 and tc2 do
+        list_rev_acc([d + 1 | acc], [])
+      else if big_cmp(big_mul(rem, 2), s) < 0 do
+        list_rev_acc([d | acc], [])
+      else
+        list_rev_acc([d + 1 | acc], [])
+      end
+    end
+  end
+end
+
+float_bitlen :: fn(x: u64, n: i64) -> i64 do
+  if x == 0 do n else float_bitlen(x / 2, n + 1) end
+end
+
+float_fix :: fn(r: [u64], s: [u64], mp: [u64], mm: [u64], k: i64, incl: bool) -> ([u64], [u64], [u64], [u64], i64) do
+  t = if incl do 0 else 1 end
+  hi = big_add(r, mp)
+  if big_cmp(hi, s) >= t do
+    float_fix(r, big_mul(s, 10), mp, mm, k + 1, incl)
+  else if big_cmp(big_mul(hi, 10), s) < t do
+    float_fix(big_mul(r, 10), s, big_mul(mp, 10), big_mul(mm, 10), k - 1, incl)
+  else
+    (r, s, mp, mm, k)
+  end
+end
+
+float_dragon :: fn(f: u64, e: i64, min_e: i64, hidden: u64) -> ([u64], i64) do
+  incl = f % 2 == 0
+  unequal = f == hidden and e > min_e
+  setup = if e >= 0 do
+    if not unequal do
+      (big_shl(big_from(f), e + 1), big_from(2), big_shl(big_from(1), e), big_shl(big_from(1), e))
+    else
+      (big_shl(big_from(f), e + 2), big_from(4), big_shl(big_from(1), e + 1), big_shl(big_from(1), e))
+    end
+  else
+    if not unequal do
+      (big_from(f * 2), big_shl(big_from(1), 1 - e), big_from(1), big_from(1))
+    else
+      (big_from(f * 4), big_shl(big_from(1), 2 - e), big_from(2), big_from(1))
+    end
+  end
+  match setup do
+    (r, s, mp, mm) -> do
+      est = (e + float_bitlen(f, 0) - 1) * 30103 / 100000
+      scaled = if est >= 0 do
+        (r, big_mul10(s, est), mp, mm)
+      else
+        (big_mul10(r, 0 - est), s, big_mul10(mp, 0 - est), big_mul10(mm, 0 - est))
+      end
+      match scaled do
+        (r2, s2, mp2, mm2) ->
+          match float_fix(r2, s2, mp2, mm2, est, incl) do
+            (r3, s3, mp3, mm3, k) -> (float_gen(r3, s3, mp3, mm3, incl, []), k)
+          end
+      end
+    end
+  end
+end
+
+float_digits_string :: fn(ds: [u64]) -> String do
+  s = __str_alloc(list_length(ds))
+  float_put_digits(ds, s, 0)
+  s
+end
+
+float_put_digits :: fn(ds: [u64], s: String, i: usize) do
+  match ds do
+    [] -> ()
+    [d | rest] -> do
+      __set_byte(s, i, __u8_of_u64(d + 48))
+      float_put_digits(rest, s, i + 1)
+    end
+  end
+end
+
+float_layout :: fn(neg: bool, ds: [u64], k: i64) -> String do
+  digits = float_digits_string(ds)
+  n = __i64_of_usize(__str_len(digits))
+  sign = if neg do "-" else "" end
+  if k >= 17 or k <= -4 do
+    first = string_sub(digits, 0, 1)
+    rest = if n > 1 do string_concat([".", string_sub(digits, 1, __usize_of_i64(n - 1))]) else "" end
+    string_concat([sign, first, rest, "e", string_from_i64(k - 1)])
+  else if k <= 0 do
+    string_concat([sign, "0.", string_repeat("0", __usize_of_i64(0 - k)), digits])
+  else if n <= k do
+    string_concat([sign, digits, string_repeat("0", __usize_of_i64(k - n)), ".0"])
+  else
+    string_concat([sign, string_sub(digits, 0, __usize_of_i64(k)), ".", string_sub(digits, __usize_of_i64(k), __usize_of_i64(n - k))])
+  end
+end
+
+float_finish :: fn(neg: bool, f: u64, e: i64, min_e: i64, hidden: u64) -> String do
+  match float_dragon(f, e, min_e, hidden) do
+    (ds, k) -> float_layout(neg, ds, k)
+  end
+end
+
+string_from_f64 :: fn(x: f64) -> String do
+  bits = __u64_of_f64(x)
+  biased = (bits / 4503599627370496) % 2048
+  frac = bits % 4503599627370496
+  neg = bits / 9223372036854775808 == 1
+  if biased == 2047 do
+    if frac == 0 do (if neg do "-inf" else "inf" end) else "NaN" end
+  else if biased == 0 do
+    if frac == 0 do
+      (if neg do "-0.0" else "0.0" end)
+    else
+      float_finish(neg, frac, -1074, -1074, 4503599627370496)
+    end
+  else
+    float_finish(neg, frac + 4503599627370496, __i64_of_u64(biased) - 1075, -1074, 4503599627370496)
+  end
+end
+
+string_from_f32 :: fn(x: f64) -> String do
+  bits = __f32_bits(x)
+  biased = (bits / 8388608) % 256
+  frac = bits % 8388608
+  neg = bits / 2147483648 == 1
+  if biased == 255 do
+    if frac == 0 do (if neg do "-inf" else "inf" end) else "NaN" end
+  else if biased == 0 do
+    if frac == 0 do
+      (if neg do "-0.0" else "0.0" end)
+    else
+      float_finish(neg, frac, -149, -149, 8388608)
+    end
+  else
+    float_finish(neg, frac + 8388608, __i64_of_u64(biased) - 150, -149, 8388608)
+  end
+end
+
+# ----- Map and Set: ordered association lists -----
+
+map_new :: fn<K: Ord, V>() -> Map<K, V> do
+  __map_of_list([])
+end
+
+map_ins :: fn<K: Ord, V>(xs: [(K, V)], k: K, v: V, acc: [(K, V)]) -> [(K, V)] do
+  match xs do
+    [] -> list_rev_acc([(k, v) | acc], [])
+    [p | rest] ->
+      match p do
+        (pk, pv) ->
+          if k < pk do
+            list_rev_acc([(k, v) | acc], xs)
+          else if pk < k do
+            map_ins(rest, k, v, [p | acc])
+          else
+            list_rev_acc([(k, v) | acc], rest)
+          end
+      end
+  end
+end
+
+map_insert :: fn<K: Ord, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V> do
+  __map_of_list(map_ins(__list_of_map(m), key, value, []))
+end
+
+map_find :: fn<K: Ord, V>(xs: [(K, V)], k: K) -> Option<V> do
+  match xs do
+    [] -> None
+    [p | rest] ->
+      match p do
+        (pk, pv) ->
+          if k < pk do
+            None
+          else if pk < k do
+            map_find(rest, k)
+          else
+            Some(pv)
+          end
+      end
+  end
+end
+
+map_get :: fn<K: Ord, V>(m: Map<K, V>, key: K) -> Option<V> do
+  map_find(__list_of_map(m), key)
+end
+
+map_get_or :: fn<K: Ord, V>(m: Map<K, V>, key: K, default: V) -> V do
+  option_unwrap_or(map_find(__list_of_map(m), key), default)
+end
+
+map_contains_key :: fn<K: Ord, V>(m: Map<K, V>, key: K) -> bool do
+  option_is_some(map_find(__list_of_map(m), key))
+end
+
+map_del :: fn<K: Ord, V>(xs: [(K, V)], k: K, acc: [(K, V)]) -> [(K, V)] do
+  match xs do
+    [] -> list_rev_acc(acc, [])
+    [p | rest] ->
+      match p do
+        (pk, pv) ->
+          if k < pk do
+            list_rev_acc(acc, xs)
+          else if pk < k do
+            map_del(rest, k, [p | acc])
+          else
+            list_rev_acc(acc, rest)
+          end
+      end
+  end
+end
+
+map_remove :: fn<K: Ord, V>(m: Map<K, V>, key: K) -> Map<K, V> do
+  __map_of_list(map_del(__list_of_map(m), key, []))
+end
+
+map_size :: fn<K, V>(m: Map<K, V>) -> usize do
+  list_length(__list_of_map(m))
+end
+
+map_is_empty :: fn<K, V>(m: Map<K, V>) -> bool do
+  list_is_empty(__list_of_map(m))
+end
+
+map_keys :: fn<K, V>(m: Map<K, V>) -> [K] do
+  list_map(__list_of_map(m), fn(p) -> match p do
+    (k, _) -> k
+  end end)
+end
+
+map_values :: fn<K, V>(m: Map<K, V>) -> [V] do
+  list_map(__list_of_map(m), fn(p) -> match p do
+    (_, v) -> v
+  end end)
+end
+
+map_to_list :: fn<K, V>(m: Map<K, V>) -> [(K, V)] do
+  __list_of_map(m)
+end
+
+map_add_all :: fn<K: Ord, V>(m: Map<K, V>, pairs: [(K, V)]) -> Map<K, V> do
+  match pairs do
+    [] -> m
+    [p | rest] ->
+      match p do
+        (k, v) -> map_add_all(map_insert(m, k, v), rest)
+      end
+  end
+end
+
+map_from_list :: fn<K: Ord, V>(pairs: [(K, V)]) -> Map<K, V> do
+  map_add_all(map_new(), pairs)
+end
+
+map_merge :: fn<K: Ord, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> do
+  map_add_all(a, __list_of_map(b))
+end
+
+set_new :: fn<T: Ord>() -> Set<T> do
+  __set_of_list([])
+end
+
+set_ins :: fn<T: Ord>(xs: [T], x: T, acc: [T]) -> [T] do
+  match xs do
+    [] -> list_rev_acc([x | acc], [])
+    [p | rest] ->
+      if x < p do
+        list_rev_acc([x | acc], xs)
+      else if p < x do
+        set_ins(rest, x, [p | acc])
+      else
+        list_rev_acc(acc, xs)
+      end
+  end
+end
+
+set_insert :: fn<T: Ord>(s: Set<T>, x: T) -> Set<T> do
+  __set_of_list(set_ins(__list_of_set(s), x, []))
+end
+
+set_has :: fn<T: Ord>(xs: [T], x: T) -> bool do
+  match xs do
+    [] -> false
+    [p | rest] ->
+      if x < p do
+        false
+      else if p < x do
+        set_has(rest, x)
+      else
+        true
+      end
+  end
+end
+
+set_contains :: fn<T: Ord>(s: Set<T>, x: T) -> bool do
+  set_has(__list_of_set(s), x)
+end
+
+set_del :: fn<T: Ord>(xs: [T], x: T, acc: [T]) -> [T] do
+  match xs do
+    [] -> list_rev_acc(acc, [])
+    [p | rest] ->
+      if x < p do
+        list_rev_acc(acc, xs)
+      else if p < x do
+        set_del(rest, x, [p | acc])
+      else
+        list_rev_acc(acc, rest)
+      end
+  end
+end
+
+set_remove :: fn<T: Ord>(s: Set<T>, x: T) -> Set<T> do
+  __set_of_list(set_del(__list_of_set(s), x, []))
+end
+
+set_size :: fn<T>(s: Set<T>) -> usize do
+  list_length(__list_of_set(s))
+end
+
+set_is_empty :: fn<T>(s: Set<T>) -> bool do
+  list_is_empty(__list_of_set(s))
+end
+
+set_to_list :: fn<T>(s: Set<T>) -> [T] do
+  __list_of_set(s)
+end
+
+set_add_all :: fn<T: Ord>(s: Set<T>, xs: [T]) -> Set<T> do
+  match xs do
+    [] -> s
+    [x | rest] -> set_add_all(set_insert(s, x), rest)
+  end
+end
+
+set_from_list :: fn<T: Ord>(xs: [T]) -> Set<T> do
+  set_add_all(set_new(), xs)
+end
+
+set_union :: fn<T: Ord>(a: Set<T>, b: Set<T>) -> Set<T> do
+  set_add_all(a, __list_of_set(b))
+end
+
+show_pairs :: fn<K, V>(xs: [(K, V)], fk: fn(K, [String]) -> [String], fv: fn(V, [String]) -> [String], first: bool, acc: [String]) -> [String] do
+  match xs do
+    [] -> acc
+    [p | rest] ->
+      match p do
+        (k, v) -> show_pairs(rest, fk, fv, false, fv(v, [": " | fk(k, if first do acc else [", " | acc] end)]))
+      end
+  end
+end
+
+# ----- float helpers -----
+
+float_powi_loop :: fn(a: f64, b: i64, r: f64) -> f64 do
+  r2 = if b % 2 == 1 do r * a else r end
+  b2 = b / 2
+  if b2 == 0 do r2 else float_powi_loop(a * a, b2, r2) end
+end
+
+float_powi :: fn(a: f64, b: i64) -> f64 do
+  if b == 0 do 1.0 else float_powi_loop(a, b, 1.0) end
+end
+
+float_round :: fn(x: f64) -> f64 do
+  r = __trunc(x)
+  d = if x - r < 0.0 do r - x else x - r end
+  if d >= 0.5 do (if x < 0.0 do r - 1.0 else r + 1.0 end) else r end
+end
+
+# ----- process, time, environment, standard input -----
+
+process_exit :: fn(code: i32) do
+  c = if code < 0 do 0 else if code > 255 do 255 else code end
+  __syscall(if __lythos() == 1 do 1 else 60 end, __i64_of_i32(c), 0, 0)
+  ()
+end
+
+time_now_ms :: fn(clock: Clock) -> i64 do
+  if __lythos() == 1 do
+    __syscall(44, 0, 0, 0)
+  else
+    buf = __str_alloc(16)
+    p = __payload(buf)
+    __syscall(228, 0, p, 0)
+    __peek(p) * 1000 + __peek(p + 8) / 1000000
+  end
+end
+
+time_sleep_ms :: fn(clock: Clock, ms: u64) do
+  m = __i64_of_u64(ms)
+  if __lythos() == 1 do
+    __syscall(33, m * 1000000, 0, 0)
+  else
+    buf = __str_alloc(16)
+    p = __payload(buf)
+    __poke(p, m / 1000)
+    __poke(p + 8, (m % 1000) * 1000000)
+    __syscall(35, p, 0, 0)
+  end
+  ()
+end
+
+cstr_len :: fn(addr: i64, n: usize) -> usize do
+  if __peek_byte(addr + __i64_of_usize(n)) == 0 do n else cstr_len(addr, n + 1) end
+end
+
+cstr_string :: fn(addr: i64) -> String do
+  n = cstr_len(addr, 0)
+  s = __str_alloc(n)
+  cstr_copy(addr, s, 0, n)
+  s
+end
+
+cstr_copy :: fn(addr: i64, s: String, i: usize, n: usize) do
+  if i < n do
+    __set_byte(s, i, __peek_byte(addr + __i64_of_usize(i)))
+    cstr_copy(addr, s, i + 1, n)
+  else
+    ()
+  end
+end
+
+env_args_from :: fn(argv: i64, i: i64, argc: i64, acc: [String]) -> [String] do
+  if i >= argc do
+    list_rev_acc(acc, [])
+  else
+    env_args_from(argv, i + 1, argc, [cstr_string(__peek(argv + i * 8)) | acc])
+  end
+end
+
+env_args :: fn(env: EnvCap) -> [String] do
+  sp = __sp()
+  env_args_from(sp + 8, 1, __peek(sp), [])
+end
+
+env_match :: fn(entry: i64, name: String, i: usize, n: usize) -> bool do
+  if i == n do
+    __peek_byte(entry + __i64_of_usize(n)) == 61
+  else
+    if __peek_byte(entry + __i64_of_usize(i)) == __byte(name, i) do env_match(entry, name, i + 1, n) else false end
+  end
+end
+
+env_scan :: fn(envp: i64, name: String) -> Option<String> do
+  entry = __peek(envp)
+  if entry == 0 do
+    None
+  else
+    if env_match(entry, name, 0, __str_len(name)) do
+      Some(cstr_string(entry + __i64_of_usize(__str_len(name)) + 1))
+    else
+      env_scan(envp + 8, name)
+    end
+  end
+end
+
+env_var :: fn(env: EnvCap, name: String) -> Option<String> do
+  sp = __sp()
+  env_scan(sp + 8 + (__peek(sp) + 1) * 8, name)
+end
+
+# The one stdin buffer: reused for every fill, allocated before any region opens (`stdin_pin`)
+# so that rewinding a region never drops buffered input.
+stdin_buffer :: fn() -> String do
+  cur = __global_get(0)
+  if cur != 0 do
+    __string_of_i64(cur)
+  else
+    spare = __global_get(8)
+    if spare != 0 do
+      __global_set(8, 0)
+      __string_of_i64(spare)
+    else
+      __str_alloc(65536)
+    end
+  end
+end
+
+stdin_pin :: fn() do
+  if __global_get(0) == 0 and __global_get(8) == 0 and __global_get(3) != 1 do
+    __global_set(8, __i64_of_string(__str_alloc(65536)))
+  end
+end
+
+stdin_fill :: fn() -> bool do
+  pos = __global_get(1)
+  len = __global_get(2)
+  if pos < len do
+    true
+  else
+    if __global_get(3) == 1 do
+      false
+    else
+      buf = stdin_buffer()
+      n = if __lythos() == 1 do __syscall(14, __payload(buf), 65536, 0) else __syscall(0, 0, __payload(buf), 65536) end
+      if n <= 0 do
+        __global_set(3, 1)
+        false
+      else
+        __global_set(0, __i64_of_string(buf))
+        __global_set(1, 0)
+        __global_set(2, n)
+        true
+      end
+    end
+  end
+end
+
+stdin_find :: fn(buf: String, i: i64, len: i64) -> i64 do
+  if i >= len do
+    -1
+  else
+    if __byte(buf, __usize_of_i64(i)) == 10 do i else stdin_find(buf, i + 1, len) end
+  end
+end
+
+stdin_strip_cr :: fn(s: String) -> String do
+  n = __str_len(s)
+  if n > 0 and __byte(s, n - 1) == 13 do string_sub(s, 0, n - 1) else s end
+end
+
+stdin_line :: fn(acc: [String]) -> Option<String> do
+  if not stdin_fill() do
+    match acc do
+      [] -> None
+      _ -> Some(string_concat(list_rev_acc(acc, [])))
+    end
+  else
+    buf = __string_of_i64(__global_get(0))
+    pos = __global_get(1)
+    len = __global_get(2)
+    idx = stdin_find(buf, pos, len)
+    if idx >= 0 do
+      __global_set(1, idx + 1)
+      piece = string_sub(buf, __usize_of_i64(pos), __usize_of_i64(idx - pos))
+      Some(stdin_strip_cr(string_concat(list_rev_acc([piece | acc], []))))
+    else
+      __global_set(1, len)
+      stdin_line([string_sub(buf, __usize_of_i64(pos), __usize_of_i64(len - pos)) | acc])
+    end
+  end
+end
+
+io_read_line :: fn() -> Option<String> do
+  stdin_line([])
+end
+
+io_read_line_from :: fn(console: Console) -> Option<String> do
+  stdin_line([])
+end
+
+stdin_all :: fn(acc: [String]) -> String do
+  if not stdin_fill() do
+    string_concat(list_rev_acc(acc, []))
+  else
+    buf = __string_of_i64(__global_get(0))
+    pos = __global_get(1)
+    len = __global_get(2)
+    __global_set(1, len)
+    stdin_all([string_sub(buf, __usize_of_i64(pos), __usize_of_i64(len - pos)) | acc])
+  end
+end
+
+io_read_all :: fn() -> String do
+  stdin_all([])
+end
+
+# ----- arrays -----
+#
+# An array is a three-word header [length, capacity, data] in the heap; `data` is a block of
+# `capacity` words from `mem_alloc`. Growing allocates a bigger block and frees the old one.
+
+text_of_i64 :: fn(n: i64) -> String do
+  if n < 0 do
+    string_concat(["-", text_of_i64(0 - n)])
+  else if n < 10 do
+    string_sub("0123456789", __usize_of_i64(n), 1)
+  else
+    string_concat([text_of_i64(n / 10), string_sub("0123456789", __usize_of_i64(n % 10), 1)])
+  end
+end
+
+array_fail :: fn<T>(i: i64, len: i64, what: String) -> T do
+  __panic(string_concat(["index ", text_of_i64(i), " is out of range for ", what, " of length ", text_of_i64(len)]))
+end
+
+array_new :: fn<T>() -> Array<T> do
+  __array_of_word(__i64_of_usize(mem_alloc(24)))
+end
+
+array_len :: fn<T>(a: Array<T>) -> i64 do
+  __peek(__word_of_array(a))
+end
+
+array_data :: fn<T>(a: Array<T>) -> i64 do
+  __peek(__word_of_array(a) + 16)
+end
+
+# Make room for `need` elements.
+array_reserve :: fn<T>(a: Array<T>, need: i64) do
+  h = __word_of_array(a)
+  cap = __peek(h + 8)
+  if need > cap do
+    var fresh = if cap * 2 > 4 do cap * 2 else 4 end
+    if need > fresh do
+      fresh := need
+    end
+    block = __i64_of_usize(mem_alloc(__usize_of_i64(fresh * 8)))
+    old = __peek(h + 16)
+    if old != 0 do
+      mem_copy(__usize_of_i64(block), __usize_of_i64(old), __usize_of_i64(__peek(h) * 8))
+      mem_free(__usize_of_i64(old), __usize_of_i64(cap * 8))
+    end
+    __poke(h + 8, fresh)
+    __poke(h + 16, block)
+  end
+end
+
+array_push :: fn<T>(a: Array<T>, value: T) do
+  n = array_len(a)
+  array_reserve(a, n + 1)
+  __poke(array_data(a) + n * 8, __word_of_value(value))
+  __poke(__word_of_array(a), n + 1)
+end
+
+array_filled :: fn<T>(count: usize, value: T) -> Array<T> do
+  a = array_new()
+  n = __i64_of_usize(count)
+  array_reserve(a, n)
+  var i = 0
+  while i < n do
+    __poke(array_data(a) + i * 8, __word_of_value(value))
+    i := i + 1
+  end
+  __poke(__word_of_array(a), n)
+  a
+end
+
+array_from_list :: fn<T>(xs: [T]) -> Array<T> do
+  a = array_new()
+  array_fill_from(a, xs)
+  a
+end
+
+array_fill_from :: fn<T>(a: Array<T>, xs: [T]) do
+  match xs do
+    [] -> ()
+    [x | rest] -> do
+      array_push(a, x)
+      array_fill_from(a, rest)
+    end
+  end
+end
+
+array_to_list :: fn<T>(a: Array<T>) -> [T] do
+  array_list_from(a, array_len(a), [])
+end
+
+array_list_from :: fn<T>(a: Array<T>, i: i64, acc: [T]) -> [T] do
+  if i == 0 do
+    acc
+  else
+    array_list_from(a, i - 1, [__value_of_word(__peek(array_data(a) + (i - 1) * 8)) | acc])
+  end
+end
+
+array_length :: fn<T>(a: Array<T>) -> usize do
+  __usize_of_i64(array_len(a))
+end
+
+array_get :: fn<T>(a: Array<T>, index: usize) -> Option<T> do
+  i = __i64_of_usize(index)
+  if i < 0 or i >= array_len(a) do
+    None
+  else
+    Some(__value_of_word(__peek(array_data(a) + i * 8)))
+  end
+end
+
+array_index :: fn<T>(a: Array<T>, index: usize) -> T do
+  i = array_check(a, index)
+  __value_of_word(__peek(array_data(a) + i * 8))
+end
+
+array_check :: fn<T>(a: Array<T>, index: usize) -> i64 do
+  i = __i64_of_usize(index)
+  if i < 0 or i >= array_len(a) do
+    array_fail(i, array_len(a), "an array")
+  else
+    i
+  end
+end
+
+array_set :: fn<T>(a: Array<T>, index: usize, value: T) do
+  i = array_check(a, index)
+  __poke(array_data(a) + i * 8, __word_of_value(value))
+end
+
+array_pop :: fn<T>(a: Array<T>) -> Option<T> do
+  n = array_len(a)
+  if n == 0 do
+    None
+  else
+    v = __value_of_word(__peek(array_data(a) + (n - 1) * 8))
+    __poke(__word_of_array(a), n - 1)
+    Some(v)
+  end
+end
+
+array_insert :: fn<T>(a: Array<T>, index: usize, value: T) do
+  i = __i64_of_usize(index)
+  n = array_len(a)
+  if i < 0 or i > n do
+    array_fail(i, n, "inserting into an array")
+  else
+    array_reserve(a, n + 1)
+    d = array_data(a)
+    mem_copy(__usize_of_i64(d + (i + 1) * 8), __usize_of_i64(d + i * 8), __usize_of_i64((n - i) * 8))
+    __poke(d + i * 8, __word_of_value(value))
+    __poke(__word_of_array(a), n + 1)
+  end
+end
+
+array_remove :: fn<T>(a: Array<T>, index: usize) -> T do
+  i = array_check(a, index)
+  n = array_len(a)
+  d = array_data(a)
+  v = __value_of_word(__peek(d + i * 8))
+  mem_copy(__usize_of_i64(d + i * 8), __usize_of_i64(d + (i + 1) * 8), __usize_of_i64((n - i - 1) * 8))
+  __poke(__word_of_array(a), n - 1)
+  v
+end
+
+array_swap :: fn<T>(a: Array<T>, i: usize, j: usize) do
+  x = array_check(a, i)
+  y = array_check(a, j)
+  d = array_data(a)
+  t = __peek(d + x * 8)
+  __poke(d + x * 8, __peek(d + y * 8))
+  __poke(d + y * 8, t)
+end
+
+array_clear :: fn<T>(a: Array<T>) do
+  __poke(__word_of_array(a), 0)
+end
+
+array_copy :: fn<T>(a: Array<T>) -> Array<T> do
+  b = array_new()
+  n = array_len(a)
+  array_reserve(b, n)
+  mem_copy(__usize_of_i64(array_data(b)), __usize_of_i64(array_data(a)), __usize_of_i64(n * 8))
+  __poke(__word_of_array(b), n)
+  b
+end
+
+# ----- numbers -----
+
+num_sqrt :: fn(x: f64) -> f64 do
+  __sqrt(x)
+end
+
+num_floor :: fn(x: f64) -> f64 do
+  __floor(x)
+end
+
+num_ceil :: fn(x: f64) -> f64 do
+  __ceil(x)
+end
+
+num_round :: fn(x: f64) -> f64 do
+  float_round(x)
+end
+
+string_parse_mag :: fn(s: String, i: usize, n: usize, acc: u64, limit: u64) -> Option<u64> do
+  if i == n do
+    Some(acc)
+  else
+    b = __byte(s, i)
+    if b < 48 or b > 57 do
+      None
+    else
+      d = __u64_of_u8(b - 48)
+      if acc > (limit - d) / 10 do None else string_parse_mag(s, i + 1, n, acc * 10 + d, limit) end
+    end
+  end
+end
+
+string_parse_i64 :: fn(s: String) -> Option<i64> do
+  n = __str_len(s)
+  if n == 0 do
+    None
+  else
+    b0 = __byte(s, 0)
+    neg = b0 == 45
+    start = if b0 == 45 or b0 == 43 do 1 else 0 end
+    if start == n do
+      None
+    else
+      limit = if neg do 9223372036854775808 else 9223372036854775807 end
+      match string_parse_mag(s, start, n, 0, limit) do
+        None -> None
+        Some(m) ->
+          if not neg do
+            Some(__i64_of_u64(m))
+          else if m == 9223372036854775808 do
+            Some(-9223372036854775807 - 1)
+          else
+            Some(0 - __i64_of_u64(m))
+          end
+      end
+    end
+  end
+end
+
+# ----- files -----
+#
+# A `Dir` is one machine word with the low bit set for "read only".
+#   Linux:  (directory fd + 1024) * 2 + read-only bit. The root is AT_FDCWD. Every path is
+#           resolved with openat2(RESOLVE_BENEATH), so `..`, absolute names and symlinks
+#           cannot lead out of the directory (this needs Linux 5.6).
+#   Lythos: the address of a String holding the directory's absolute path, or'd with the
+#           read-only bit. Names are checked for `..` and absolute paths; the kernel's
+#           namespace is the outer boundary.
+
+os_read :: fn(fd: i64, addr: i64, n: i64) -> i64 do
+  if __lythos() == 1 do lythos_ret(__syscall(23, fd, addr, n)) else __syscall(0, fd, addr, n) end
+end
+
+os_write :: fn(fd: i64, addr: i64, n: i64) -> i64 do
+  if __lythos() == 1 do lythos_ret(__syscall(24, fd, addr, n)) else __syscall(1, fd, addr, n) end
+end
+
+os_close :: fn(fd: i64) do
+  if __lythos() == 1 do
+    __syscall(25, fd, 0, 0)
+  else
+    __syscall(3, fd, 0, 0)
+  end
+  ()
+end
+
+# Lythos errors are small negative numbers; map them to the Linux errno with the same meaning,
+# so one table of messages serves both targets.
+lythos_ret :: fn(r: i64) -> i64 do
+  if r >= 0 do
+    r
+  else if r == 0 - 2 do
+    0 - 9
+  else if r == 0 - 3 do
+    0 - 13
+  else if r == 0 - 4 do
+    0 - 22
+  else if r == 0 - 5 do
+    0 - 2
+  else if r == 0 - 6 do
+    0 - 9
+  else if r == 0 - 7 do
+    0 - 11
+  else if r == 0 - 8 do
+    0 - 20
+  else if r == 0 - 9 do
+    0 - 19
+  else if r == 0 - 10 do
+    0 - 24
+  else if r == 0 - 11 do
+    0 - 17
+  else if r == 0 - 12 do
+    0 - 28
+  else if r == 0 - 14 do
+    0 - 30
+  else if r == 0 - 15 do
+    0 - 21
+  else if r == 0 - 16 do
+    0 - 39
+  else if r == 0 - 17 do
+    0 - 5
+  else
+    0 - 38
+  end
+end
+
+errno_name :: fn(e: i64) -> String do
+  if e == 1 do
+    "Operation not permitted"
+  else if e == 2 do
+    "No such file or directory"
+  else if e == 5 do
+    "Input/output error"
+  else if e == 9 do
+    "Bad file descriptor"
+  else if e == 11 do
+    "Resource temporarily unavailable"
+  else if e == 13 do
+    "Permission denied"
+  else if e == 17 do
+    "File exists"
+  else if e == 18 do
+    "Invalid cross-device link"
+  else if e == 19 do
+    "No such device"
+  else if e == 20 do
+    "Not a directory"
+  else if e == 21 do
+    "Is a directory"
+  else if e == 22 do
+    "Invalid argument"
+  else if e == 24 do
+    "Too many open files"
+  else if e == 28 do
+    "No space left on device"
+  else if e == 30 do
+    "Read-only file system"
+  else if e == 36 do
+    "File name too long"
+  else if e == 38 do
+    "Function not implemented"
+  else if e == 39 do
+    "Directory not empty"
+  else if e == 40 do
+    "Too many levels of symbolic links"
+  else
+    "Unknown error"
+  end
+end
+
+fs_fail :: fn<T>(name: String, e: i64) -> Result<T, Error> do
+  if e == 18 do
+    Err(Error{message: String.concat(["`", name, "` is outside the directory this capability grants"])})
+  else
+    Err(Error{message: String.concat([name, ": ", errno_name(e), " (os error ", show(e), ")"])})
+  end
+end
+
+fs_msg :: fn<T>(msg: String) -> Result<T, Error> do
+  Err(Error{message: msg})
+end
+
+fs_ro :: fn(d: Dir) -> bool do
+  __i64_of_dir(d) % 2 == 1
+end
+
+fs_read_only :: fn(dir: Dir) -> Dir do
+  w = __i64_of_dir(dir)
+  if w % 2 == 1 do dir else __dir_of_i64(w + 1) end
+end
+
+fs_cstr :: fn(s: String) -> String do
+  n = __str_len(s)
+  c = __str_alloc(n + 1)
+  __copy(c, 0, s, 0, n)
+  __set_byte(c, n, 0)
+  c
+end
+
+# 0: fine, 1: empty, 2: absolute or contains `..`.
+fs_check :: fn(name: String) -> i64 do
+  n = __str_len(name)
+  if n == 0 do
+    1
+  else if __byte(name, 0) == 47 do
+    2
+  else
+    var bad = 0
+    var start = 0
+    var i = 0
+    while i <= n do
+      if i == n or __byte(name, i) == 47 do
+        if i - start == 2 and __byte(name, start) == 46 and __byte(name, start + 1) == 46 do
+          bad := 2
+        end
+        start := i + 1
+      end
+      i := i + 1
+    end
+    bad
+  end
+end
+
+fs_bad_name :: fn<T>(name: String, code: i64) -> Result<T, Error> do
+  if code == 1 do
+    fs_msg("empty file name")
+  else
+    fs_msg(String.concat(["`", name, "` is outside the directory this capability grants"]))
+  end
+end
+
+# ---- UTF-8 validation (same rules as Rust: no overlong forms, no surrogates, at most U+10FFFF)
+
+fs_b :: fn(s: String, i: usize) -> i64 do
+  __i64_of_u8(__byte(s, i))
+end
+
+fs_conts :: fn(s: String, i: usize, n: usize, count: usize, lo: i64, hi: i64) -> bool do
+  first = fs_b(s, i + 1)
+  var good = first >= lo and first <= hi
+  var k = 1
+  while k < count do
+    c = fs_b(s, i + 1 + k)
+    if c < 128 or c > 191 do
+      good := false
+    end
+    k := k + 1
+  end
+  good
+end
+
+fs_utf8_ok :: fn(s: String) -> bool do
+  n = __str_len(s)
+  var i = 0
+  var ok = true
+  while ok and i < n do
+    b = fs_b(s, i)
+    if b < 128 do
+      i := i + 1
+    else if b >= 194 and b <= 223 do
+      if i + 1 < n and fs_conts(s, i, n, 1, 128, 191) do i := i + 2 else ok := false end
+    else if b == 224 do
+      if i + 2 < n and fs_conts(s, i, n, 2, 160, 191) do i := i + 3 else ok := false end
+    else if (b >= 225 and b <= 236) or b == 238 or b == 239 do
+      if i + 2 < n and fs_conts(s, i, n, 2, 128, 191) do i := i + 3 else ok := false end
+    else if b == 237 do
+      if i + 2 < n and fs_conts(s, i, n, 2, 128, 159) do i := i + 3 else ok := false end
+    else if b == 240 do
+      if i + 3 < n and fs_conts(s, i, n, 3, 144, 191) do i := i + 4 else ok := false end
+    else if b >= 241 and b <= 243 do
+      if i + 3 < n and fs_conts(s, i, n, 3, 128, 191) do i := i + 4 else ok := false end
+    else if b == 244 do
+      if i + 3 < n and fs_conts(s, i, n, 3, 128, 143) do i := i + 4 else ok := false end
+    else
+      ok := false
+    end
+  end
+  ok
+end
+
+# ---- reading and writing descriptors
+
+# Everything readable from `fd`: the text, or a negative errno.
+fs_slurp :: fn(fd: i64) -> Result<String, i64> do
+  var cap = 4096
+  var buf = __str_alloc(__usize_of_i64(cap))
+  var len = 0
+  var err = 0
+  var done = false
+  while not done do
+    if len == cap do
+      bigger = __str_alloc(__usize_of_i64(cap * 2))
+      __copy(bigger, 0, buf, 0, __usize_of_i64(len))
+      buf := bigger
+      cap := cap * 2
+    end
+    r = os_read(fd, __payload(buf) + len, cap - len)
+    if r < 0 do
+      err := r
+      done := true
+    else if r == 0 do
+      done := true
+    else
+      len := len + r
+    end
+  end
+  if err < 0 do
+    Err(err)
+  else
+    out = __str_alloc(__usize_of_i64(len))
+    __copy(out, 0, buf, 0, __usize_of_i64(len))
+    Ok(out)
+  end
+end
+
+# 0, or a negative errno.
+fs_write_all :: fn(fd: i64, s: String) -> i64 do
+  n = __i64_of_usize(__str_len(s))
+  var off = 0
+  var err = 0
+  while err == 0 and off < n do
+    r = os_write(fd, __payload(s) + off, n - off)
+    if r < 0 do
+      err := r
+    else if r == 0 do
+      err := 0 - 5
+    else
+      off := off + r
+    end
+  end
+  err
+end
+
+fs_text :: fn(name: String, r: Result<String, i64>) -> Result<String, Error> do
+  match r do
+    Ok(s) ->
+      if fs_utf8_ok(s) do
+        Ok(s)
+      else
+        fs_msg(String.concat([name, ": stream did not contain valid UTF-8"]))
+      end
+    Err(e) -> fs_fail(name, e)
+  end
+end
+
+# ---- Linux
+
+fsx_fd :: fn(d: Dir) -> i64 do
+  __i64_of_dir(d) / 2 - 1024
+end
+
+fsx_word :: fn(fd: i64, ro: bool) -> Dir do
+  __dir_of_i64((fd + 1024) * 2 + if ro do 1 else 0 end)
+end
+
+# openat2(dirfd, path, how) with RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS.
+fsx_open :: fn(dfd: i64, path: String, flags: i64, mode: i64) -> i64 do
+  how = __str_alloc(24)
+  p = __payload(how)
+  __poke(p, flags)
+  __poke(p + 8, mode)
+  __poke(p + 16, 10)
+  c = fs_cstr(path)
+  __syscall6(437, dfd, __payload(c), p, 24, 0, 0)
+end
+
+fsx_read :: fn(dir: Dir, name: String) -> Result<String, Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    fd = fsx_open(fsx_fd(dir), name, 524288, 0)
+    if fd < 0 do
+      fs_fail(name, 0 - fd)
+    else
+      r = fs_slurp(fd)
+      os_close(fd)
+      match r do
+        Ok(s) -> fs_text(name, Ok(s))
+        Err(e) -> fs_fail(name, 0 - e)
+      end
+    end
+  end
+end
+
+# flags: 524865 = O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 525377 = O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC
+fsx_write :: fn(dir: Dir, name: String, data: String, flags: i64) -> Result<(), Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    fd = fsx_open(fsx_fd(dir), name, flags, 438)
+    if fd < 0 do
+      fs_fail(name, 0 - fd)
+    else
+      e = fs_write_all(fd, data)
+      os_close(fd)
+      if e < 0 do fs_fail(name, 0 - e) else Ok(()) end
+    end
+  end
+end
+
+fsx_open_dir :: fn(dir: Dir, name: String) -> Result<Dir, Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    fd = fsx_open(fsx_fd(dir), name, 589824, 0)
+    if fd >= 0 do
+      Ok(fsx_word(fd, fs_ro(dir)))
+    else if fd == 0 - 18 or fd == 0 - 40 do
+      fs_fail(name, 18)
+    else if fd == 0 - 2 or fd == 0 - 20 do
+      fs_msg(String.concat([name, ": not a directory"]))
+    else
+      fs_fail(name, 0 - fd)
+    end
+  end
+end
+
+fsx_exists :: fn(dir: Dir, name: String) -> bool do
+  if fs_check(name) != 0 do
+    false
+  else
+    fd = fsx_open(fsx_fd(dir), name, 2621440, 0)
+    if fd < 0 do
+      false
+    else
+      os_close(fd)
+      true
+    end
+  end
+end
+
+fsx_list :: fn(dir: Dir) -> Result<[String], Error> do
+  fd = fsx_open(fsx_fd(dir), ".", 589824, 0)
+  if fd < 0 do
+    fs_fail(".", 0 - fd)
+  else
+    buf = __str_alloc(32768)
+    var names = []
+    var err = 0
+    var done = false
+    while not done do
+      r = __syscall(217, fd, __payload(buf), 32768)
+      if r < 0 do
+        err := r
+        done := true
+      else if r == 0 do
+        done := true
+      else
+        var off = 0
+        while off < r do
+          at = __payload(buf) + off
+          reclen = __i64_of_u8(__peek_byte(at + 16)) + __i64_of_u8(__peek_byte(at + 17)) * 256
+          nm = cstr_string(at + 19)
+          if not (string_eq(nm, ".") or string_eq(nm, "..")) do
+            names := [nm | names]
+          end
+          off := off + reclen
+        end
+      end
+    end
+    os_close(fd)
+    if err < 0 do fs_fail(".", 0 - err) else Ok(list_sort(names)) end
+  end
+end
+
+# The directory fd that holds `name` and the last component. A negative fd is an errno.
+fsx_parent :: fn(dir: Dir, name: String) -> (i64, String) do
+  n = __str_len(name)
+  var slash = 0 - 1
+  var i = 0
+  while i < n do
+    if __byte(name, i) == 47 do
+      slash := __i64_of_usize(i)
+    end
+    i := i + 1
+  end
+  if slash < 0 do
+    (fsx_fd(dir), name)
+  else
+    ps = __usize_of_i64(slash)
+    parent = string_sub(name, 0, ps)
+    base = string_sub(name, ps + 1, n - ps - 1)
+    (fsx_open(fsx_fd(dir), parent, 2686976, 0), base)
+  end
+end
+
+fsx_at :: fn(dir: Dir, name: String, what: i64) -> Result<(), Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    match fsx_parent(dir, name) do
+      (pfd, base) -> fsx_at_in(dir, name, what, pfd, base)
+    end
+  end
+end
+
+fsx_at_in :: fn(dir: Dir, name: String, what: i64, pfd: i64, base: String) -> Result<(), Error> do
+  if pfd < 0 and pfd != fsx_fd(dir) do
+    fs_fail(name, 0 - pfd)
+  else
+    c = fs_cstr(base)
+    r = if what == 0 do
+      __syscall(258, pfd, __payload(c), 511)
+    else
+      __syscall(263, pfd, __payload(c), 0)
+    end
+    r2 = if what == 1 and r == 0 - 21 do __syscall(263, pfd, __payload(c), 512) else r end
+    if pfd != fsx_fd(dir) do
+      os_close(pfd)
+    end
+    if r2 < 0 do fs_fail(name, 0 - r2) else Ok(()) end
+  end
+end
+
+# ---- Lythos
+
+fsl_root :: fn(d: Dir) -> String do
+  w = __i64_of_dir(d)
+  __string_of_i64(w - w % 2)
+end
+
+fsl_word :: fn(path: String, ro: bool) -> Dir do
+  __dir_of_i64(__i64_of_string(path) + if ro do 1 else 0 end)
+end
+
+fsl_path :: fn(dir: Dir, name: String) -> String do
+  root = fsl_root(dir)
+  parts = list_filter(string_split(name, "/"), fn(p) do not (string_eq(p, "") or string_eq(p, ".")) end)
+  if list_is_empty(parts) do
+    root
+  else if string_eq(root, "/") do
+    String.concat(["/", string_join(parts, "/")])
+  else
+    String.concat([root, "/", string_join(parts, "/")])
+  end
+end
+
+fsl_stat :: fn(path: String) -> i64 do
+  buf = __str_alloc(48)
+  lythos_ret(__syscall(26, __payload(path), __i64_of_usize(__str_len(path)), __payload(buf)))
+end
+
+fsl_read :: fn(dir: Dir, name: String) -> Result<String, Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    path = fsl_path(dir, name)
+    fd = lythos_ret(__syscall(22, __payload(path), __i64_of_usize(__str_len(path)), 0))
+    if fd < 0 do
+      fs_fail(name, 0 - fd)
+    else
+      r = fs_slurp(fd)
+      os_close(fd)
+      match r do
+        Ok(s) -> fs_text(name, Ok(s))
+        Err(e) -> fs_fail(name, 0 - e)
+      end
+    end
+  end
+end
+
+# Lythos has no truncate or append: a file is replaced by unlinking it and creating it again.
+fsl_store :: fn(path: String, data: String) -> i64 do
+  len = __i64_of_usize(__str_len(path))
+  var err = 0
+  if fsl_stat(path) >= 0 do
+    err := lythos_ret(__syscall(29, __payload(path), len, 0))
+  end
+  if err < 0 do
+    err
+  else
+    fd = lythos_ret(__syscall(28, __payload(path), len, 0))
+    if fd < 0 do
+      fd
+    else
+      e = fs_write_all(fd, data)
+      os_close(fd)
+      e
+    end
+  end
+end
+
+fsl_write :: fn(dir: Dir, name: String, data: String, append: bool) -> Result<(), Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    path = fsl_path(dir, name)
+    old = if append and fsl_stat(path) >= 0 do fsl_read(dir, name) else Ok("") end
+    match old do
+      Err(e) -> Err(e)
+      Ok(prefix) -> do
+        e = fsl_store(path, String.concat([prefix, data]))
+        if e < 0 do fs_fail(name, 0 - e) else Ok(()) end
+      end
+    end
+  end
+end
+
+fsl_entries :: fn(path: String, cap: i64) -> Result<[String], i64> do
+  buf = __str_alloc(__usize_of_i64(cap * 264))
+  r = lythos_ret(__syscall6(27, __payload(path), __i64_of_usize(__str_len(path)), __payload(buf), cap * 264, 0, 0))
+  if r < 0 do
+    Err(r)
+  else if r >= cap do
+    fsl_entries(path, cap * 4)
+  else
+    var names = []
+    var i = 0
+    while i < r do
+      at = __payload(buf) + i * 264
+      len = __usize_of_i64(__i64_of_u8(__peek_byte(at + 5)))
+      nm = __str_alloc(len)
+      var k = 0
+      while k < len do
+        __set_byte(nm, k, __peek_byte(at + 8 + __i64_of_usize(k)))
+        k := k + 1
+      end
+      if not (string_eq(nm, ".") or string_eq(nm, "..")) do
+        names := [nm | names]
+      end
+      i := i + 1
+    end
+    Ok(list_sort(names))
+  end
+end
+
+fsl_list :: fn(dir: Dir) -> Result<[String], Error> do
+  match fsl_entries(fsl_root(dir), 64) do
+    Ok(names) -> Ok(names)
+    Err(e) -> fs_fail(".", 0 - e)
+  end
+end
+
+fsl_open_dir :: fn(dir: Dir, name: String) -> Result<Dir, Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    path = fsl_path(dir, name)
+    match fsl_entries(path, 1) do
+      Ok(_) -> Ok(fsl_word(path, fs_ro(dir)))
+      Err(_) -> fs_msg(String.concat([name, ": not a directory"]))
+    end
+  end
+end
+
+fsl_exists :: fn(dir: Dir, name: String) -> bool do
+  if fs_check(name) != 0 do false else fsl_stat(fsl_path(dir, name)) >= 0 end
+end
+
+fsl_remove :: fn(dir: Dir, name: String) -> Result<(), Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    path = fsl_path(dir, name)
+    r = lythos_ret(__syscall(29, __payload(path), __i64_of_usize(__str_len(path)), 0))
+    if r < 0 do fs_fail(name, 0 - r) else Ok(()) end
+  end
+end
+
+fsl_make_dir :: fn(dir: Dir, name: String) -> Result<(), Error> do
+  code = fs_check(name)
+  if code != 0 do
+    fs_bad_name(name, code)
+  else
+    path = fsl_path(dir, name)
+    r = lythos_ret(__syscall(32, __payload(path), __i64_of_usize(__str_len(path)), 0))
+    if r < 0 do fs_fail(name, 0 - r) else Ok(()) end
+  end
+end
+
+# ---- the public operations
+
+fs_read_to_string :: fn(dir: Dir, name: String) -> Result<String, Error> do
+  if __lythos() == 1 do fsl_read(dir, name) else fsx_read(dir, name) end
+end
+
+fs_write_string :: fn(dir: Dir, name: String, data: String) -> Result<(), Error> do
+  if fs_ro(dir) do
+    fs_msg("this directory is read-only")
+  else if __lythos() == 1 do
+    fsl_write(dir, name, data, false)
+  else
+    fsx_write(dir, name, data, 524865)
+  end
+end
+
+fs_append_string :: fn(dir: Dir, name: String, data: String) -> Result<(), Error> do
+  if fs_ro(dir) do
+    fs_msg("this directory is read-only")
+  else if __lythos() == 1 do
+    fsl_write(dir, name, data, true)
+  else
+    fsx_write(dir, name, data, 525377)
+  end
+end
+
+fs_open_dir :: fn(dir: Dir, name: String) -> Result<Dir, Error> do
+  if __lythos() == 1 do fsl_open_dir(dir, name) else fsx_open_dir(dir, name) end
+end
+
+fs_exists :: fn(dir: Dir, name: String) -> bool do
+  if __lythos() == 1 do fsl_exists(dir, name) else fsx_exists(dir, name) end
+end
+
+fs_list :: fn(dir: Dir) -> Result<[String], Error> do
+  if __lythos() == 1 do fsl_list(dir) else fsx_list(dir) end
+end
+
+fs_remove :: fn(dir: Dir, name: String) -> Result<(), Error> do
+  if fs_ro(dir) do
+    fs_msg("this directory is read-only")
+  else if __lythos() == 1 do
+    fsl_remove(dir, name)
+  else
+    fsx_at(dir, name, 1)
+  end
+end
+
+fs_make_dir :: fn(dir: Dir, name: String) -> Result<(), Error> do
+  if fs_ro(dir) do
+    fs_msg("this directory is read-only")
+  else if __lythos() == 1 do
+    fsl_make_dir(dir, name)
+  else
+    fsx_at(dir, name, 0)
+  end
+end
+
+# ----- raw memory and system calls (std.mem, std.sys; the type checker requires `unsafe`) -----
+
+# ----- allocation -----
+#
+# Blocks come in power-of-two size classes from 16 bytes (class 0) up to 1 GiB (class 26).
+# `free` pushes a block on its class's list; `alloc` pops one (zeroing it) or takes fresh memory
+# from the bump heap. Globals: 4 = free-list table, 5 = live bytes, 6 = start of the current heap chunk.
+
+mem_class :: fn(size: i64) -> i64 do
+  if size < 0 or size > 1073741824 do
+    __panic("`mem.alloc` size is out of range (at most 1 GiB)")
+  else
+    var k = 0
+    var c = 16
+    while c < size do
+      c := c * 2
+      k := k + 1
+    end
+    k
+  end
+end
+
+mem_bytes :: fn(k: i64) -> i64 do
+  var b = 16
+  var i = 0
+  while i < k do
+    b := b * 2
+    i := i + 1
+  end
+  b
+end
+
+mem_table :: fn() -> i64 do
+  t = __global_get(4)
+  if t != 0 do
+    t
+  else
+    fresh = __payload(__str_alloc(216))
+    __global_set(4, fresh)
+    fresh
+  end
+end
+
+mem_zero :: fn(addr: i64, len: i64) do
+  var i = 0
+  while i + 8 <= len do
+    __poke(addr + i, 0)
+    i := i + 8
+  end
+  while i < len do
+    __poke8(addr + i, 0)
+    i := i + 1
+  end
+end
+
+mem_alloc :: fn(size: usize) -> usize do
+  n = __i64_of_usize(size)
+  k = mem_class(n)
+  bytes = mem_bytes(k)
+  t = mem_table()
+  head = __peek(t + k * 8)
+  __global_set(5, __global_get(5) + bytes)
+  if head != 0 do
+    __poke(t + k * 8, __peek(head))
+    mem_zero(head, bytes)
+    __usize_of_i64(head)
+  else
+    __usize_of_i64(__payload(__str_alloc(__usize_of_i64(bytes))))
+  end
+end
+
+mem_free :: fn(addr: usize, size: usize) do
+  if addr != 0 do
+    a = __i64_of_usize(addr)
+    k = mem_class(__i64_of_usize(size))
+    t = mem_table()
+    __poke(a, __peek(t + k * 8))
+    __poke(t + k * 8, a)
+    __global_set(5, __global_get(5) - mem_bytes(k))
+  end
+end
+
+mem_copy :: fn(dst: usize, src: usize, len: usize) do
+  d = __i64_of_usize(dst)
+  s = __i64_of_usize(src)
+  n = __i64_of_usize(len)
+  if d <= s do
+    var i = 0
+    while i + 8 <= n do
+      __poke(d + i, __peek(s + i))
+      i := i + 8
+    end
+    while i < n do
+      __poke8(d + i, __i64_of_u8(__peek_byte(s + i)))
+      i := i + 1
+    end
+  else
+    var i = n
+    while i > 0 do
+      i := i - 1
+      __poke8(d + i, __i64_of_u8(__peek_byte(s + i)))
+    end
+  end
+end
+
+mem_fill :: fn(addr: usize, value: u8, len: usize) do
+  a = __i64_of_usize(addr)
+  n = __i64_of_usize(len)
+  v = __i64_of_u8(value)
+  var i = 0
+  while i < n do
+    __poke8(a + i, v)
+    i := i + 1
+  end
+end
+
+mem_realloc :: fn(addr: usize, old: usize, size: usize) -> usize do
+  if addr == 0 do
+    mem_alloc(size)
+  else if mem_class(__i64_of_usize(old)) == mem_class(__i64_of_usize(size)) do
+    addr
+  else
+    fresh = mem_alloc(size)
+    keep = if old < size do old else size end
+    mem_copy(fresh, addr, keep)
+    mem_free(addr, old)
+    fresh
+  end
+end
+
+mem_live :: fn() -> usize do
+  __usize_of_i64(__global_get(5))
+end
+
+mem_mark :: fn() -> usize do
+  __usize_of_i64(__peek(__heap_base()))
+end
+
+# Drop every block in the free lists that lies at or above `mark`.
+mem_prune :: fn(mark: i64) do
+  t = __global_get(4)
+  if t != 0 do
+    var k = 0
+    while k < 27 do
+      var kept = 0
+      var node = __peek(t + k * 8)
+      while node != 0 do
+        next = __peek(node)
+        if node < mark do
+          __poke(node, kept)
+          kept := node
+        end
+        node := next
+      end
+      __poke(t + k * 8, kept)
+      k := k + 1
+    end
+  end
+end
+
+mem_reset :: fn(mark: usize) do
+  m = __i64_of_usize(mark)
+  base = __heap_base()
+  top = __peek(base)
+  # Only rewind inside the current chunk; after the heap moved to a new chunk, keep everything.
+  if m >= __global_get(6) and m <= top and __global_get(6) != 0 do
+    mem_prune(m)
+    if __global_get(4) >= m do
+      __global_set(4, 0)
+    end
+    if __global_get(0) >= m and __global_get(0) < top do
+      __global_set(0, 0)
+      __global_set(1, 0)
+      __global_set(2, 0)
+    end
+    mem_zero(m, top - m)
+    __poke(base, m)
+  end
+end
+
+# `mem_reset` for a region whose result is a string living in the region: copy it to the top,
+# rewind, then slide it down to the mark.
+mem_reset_str :: fn(mark: usize, s: String) -> String do
+  m = __i64_of_usize(mark)
+  p = __i64_of_string(s)
+  base = __heap_base()
+  top = __peek(base)
+  if __global_get(6) == 0 or m < __global_get(6) or m > top or p < m or p >= top do
+    mem_reset(mark)
+    s
+  else
+    n = __peek(p)
+    size = (n + 8 + 7) / 8 * 8
+    c = __i64_of_string(__str_alloc(__usize_of_i64(n)))
+    var i = 0
+    while i < size do
+      __poke(c + i, __peek(p + i))
+      i := i + 8
+    end
+    end_top = __peek(base)
+    mem_prune(m)
+    if __global_get(4) >= m do
+      __global_set(4, 0)
+    end
+    if __global_get(0) >= m and __global_get(0) < end_top do
+      __global_set(0, 0)
+      __global_set(1, 0)
+      __global_set(2, 0)
+    end
+    mem_zero(m, c - m)
+    i := 0
+    while i < size do
+      __poke(m + i, __peek(c + i))
+      i := i + 8
+    end
+    mem_zero(m + size, c + size - m - size)
+    __poke(base, m + size)
+    __string_of_i64(m)
+  end
+end
+
+mem_addr_of :: fn(s: String) -> usize do
+  __usize_of_i64(__payload(s))
+end
+
+mem_buffer :: fn(size: usize) -> String do
+  __str_alloc(size)
+end
+
+mem_string_from :: fn(addr: usize, len: usize) -> String do
+  s = __str_alloc(len)
+  var i = 0
+  while i < len do
+    __set_byte(s, i, __peek_byte(__i64_of_usize(addr + i)))
+    i := i + 1
+  end
+  s
+end
+
+mem_copy_to :: fn(addr: usize, s: String) do
+  n = __str_len(s)
+  var i = 0
+  while i < n do
+    __poke8(__i64_of_usize(addr + i), __i64_of_u8(__byte(s, i)))
+    i := i + 1
+  end
+end
+
+mem_read_u8 :: fn(addr: usize) -> u8 do
+  __peek_byte(__i64_of_usize(addr))
+end
+
+mem_read_u16 :: fn(addr: usize) -> u16 do
+  __u16_of_u64(__peek16(__i64_of_usize(addr)))
+end
+
+mem_read_u32 :: fn(addr: usize) -> u32 do
+  __u32_of_u64(__peek32(__i64_of_usize(addr)))
+end
+
+mem_read_u64 :: fn(addr: usize) -> u64 do
+  __u64_of_i64(__peek(__i64_of_usize(addr)))
+end
+
+mem_write_u8 :: fn(addr: usize, value: u8) do
+  __poke8(__i64_of_usize(addr), __i64_of_u8(value))
+end
+
+mem_write_u16 :: fn(addr: usize, value: u16) do
+  __poke16(__i64_of_usize(addr), __i64_of_u16(value))
+end
+
+mem_write_u32 :: fn(addr: usize, value: u32) do
+  __poke32(__i64_of_usize(addr), __i64_of_u32(value))
+end
+
+mem_write_u64 :: fn(addr: usize, value: u64) do
+  __poke(__i64_of_usize(addr), __i64_of_u64(value))
+end
+
+sys_syscall0 :: fn(n: i64) -> i64 do
+  __syscall6(n, 0, 0, 0, 0, 0, 0)
+end
+
+sys_syscall1 :: fn(n: i64, a: i64) -> i64 do
+  __syscall6(n, a, 0, 0, 0, 0, 0)
+end
+
+sys_syscall2 :: fn(n: i64, a: i64, b: i64) -> i64 do
+  __syscall6(n, a, b, 0, 0, 0, 0)
+end
+
+sys_syscall3 :: fn(n: i64, a: i64, b: i64, c: i64) -> i64 do
+  __syscall6(n, a, b, c, 0, 0, 0)
+end
+
+sys_syscall4 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64) -> i64 do
+  __syscall6(n, a, b, c, d, 0, 0)
+end
+
+sys_syscall5 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64, e: i64) -> i64 do
+  __syscall6(n, a, b, c, d, e, 0)
+end
+
+sys_syscall6 :: fn(n: i64, a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 do
+  __syscall6(n, a, b, c, d, e, f)
+end

@@ -1,0 +1,14 @@
+# values1: Bindings
+# Book: chapter 3
+# I AM NOT DONE
+
+# Give each name a value of the kind described.
+main :: fn() do
+  answer = ???      # the whole number 42
+  pi = ???          # the number 3.14159
+  ready = ???       # a boolean
+  greeting = ???    # the text "hello"
+end
+
+# HINT
+# Numbers are written plainly, strings go in double quotes, booleans are `true` and `false`.

@@ -1,0 +1,8 @@
+# functions2: Lambdas
+# Book: chapter 4
+
+# A lambda is: fn(params) -> expression end
+main :: fn() do
+  double = fn(x) -> x * 2 end
+  ten = double(5)
+end

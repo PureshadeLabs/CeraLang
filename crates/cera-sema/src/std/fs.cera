@@ -1,0 +1,12 @@
+# Stub signatures for std.fs. Every operation takes the directory capability it
+# works inside; names may not be absolute or contain `..`.
+
+open_dir :: fn(dir: Dir, name: String) -> Result<Dir, Error>
+read_only :: fn(dir: Dir) -> Dir
+read_to_string :: fn(dir: Dir, name: String) -> Result<String, Error>
+write_string :: fn(dir: Dir, name: String, data: String) -> Result<(), Error>
+append_string :: fn(dir: Dir, name: String, data: String) -> Result<(), Error>
+exists :: fn(dir: Dir, name: String) -> bool
+list :: fn(dir: Dir) -> Result<[String], Error>
+remove :: fn(dir: Dir, name: String) -> Result<(), Error>
+make_dir :: fn(dir: Dir, name: String) -> Result<(), Error>

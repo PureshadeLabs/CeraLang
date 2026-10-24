@@ -1,0 +1,11 @@
+# functions1: Parameter types
+# Book: chapter 4
+# I AM NOT DONE
+
+# Parameters need a type: name: Type
+add :: fn(a: i32, b) -> i32 do
+  a + b
+end
+
+# HINT
+# The second parameter, `b`, has no type. Write `b: i32`.

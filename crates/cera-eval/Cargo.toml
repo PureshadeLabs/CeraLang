@@ -1,0 +1,11 @@
+[package]
+name = "cera-eval"
+description = "Tree-walking interpreter for Cera"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }

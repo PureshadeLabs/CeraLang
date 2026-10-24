@@ -1,0 +1,10 @@
+# values2: Constants and arithmetic
+# Book: chapter 3
+
+# LIMIT is a top-level constant equal to 100.
+LIMIT :: 100
+
+# total should be 1 + 2 + 3.
+main :: fn() do
+  total = 1 + 2 + 3
+end

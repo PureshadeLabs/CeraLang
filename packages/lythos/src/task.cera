@@ -1,0 +1,119 @@
+## Tasks: start programs, wait for them, stop them.
+import std.mem
+import std.sys
+import lythos
+import lythos.file
+
+## A running or finished task.
+pub Task :: type { id: i64 }
+
+## How a task is doing.
+pub State :: type
+  | Gone
+  | Running
+  | Ready
+  | Blocked
+end
+
+## Start a task from ELF bytes. `caps` are handles of this task, copied into the new task's
+## table in order (slot 0 = `caps[0]`). `args` become its `argv`.
+pub spawn :: fn(elf: String, caps: [i64], args: [String]) -> Result<Task, Error> do
+  capbuf = unsafe do mem.buffer(List.length(caps) * 8) end
+  put_caps(capbuf, caps, 0)
+  argv = String.concat(List.map(args, fn(a) -> String.concat([a, "\0"]) end))
+  if String.length(argv) > 4000 do
+    Err(Error{message: "the arguments are at most 4000 bytes in total"})
+  else
+    r = unsafe do
+      sys.syscall6(10, addr(elf), size(elf), addr(capbuf), size(capbuf) / 8, addr(argv), size(argv))
+    end
+    match lythos.check(r) do
+      Ok(id) -> Ok(Task{id: id})
+      Err(e) -> Err(e)
+    end
+  end
+end
+
+## Start a task from an ELF file (an absolute path such as "/lth/bin/lysh").
+pub spawn_file :: fn(path: String, caps: [i64], args: [String]) -> Result<Task, Error> do
+  match file.read_bytes(path) do
+    Ok(elf) -> spawn(elf, caps, args)
+    Err(e) -> Err(e)
+  end
+end
+
+## Wait until the task exits and return its exit status word (0 for a clean exit).
+pub wait :: fn(t: Task) -> Result<i64, Error> do
+  r = unsafe do sys.syscall1(31, t.id) end
+  lythos.check(r)
+end
+
+## Stop a task.
+pub kill :: fn(t: Task) -> Result<(), Error> do
+  r = unsafe do sys.syscall1(19, t.id) end
+  lythos.check_unit(r)
+end
+
+## Is the task alive, and what is it doing?
+pub state :: fn(t: Task) -> State do
+  r = unsafe do sys.syscall1(16, t.id) end
+  if r == 1 do
+    Running
+  else if r == 2 do
+    Ready
+  else if r == 3 do
+    Blocked
+  else
+    Gone
+  end
+end
+
+## Give another task a copy of one of our capabilities, with rights `mask` or fewer.
+## Returns the handle in the other task's table.
+pub grant :: fn(cap: i64, to: Task, mask: i64) -> Result<i64, Error> do
+  r = unsafe do sys.syscall3(4, cap, to.id, mask) end
+  lythos.check(r)
+end
+
+## Remove a capability here and, recursively, everything derived from it.
+pub revoke :: fn(cap: i64) -> Result<(), Error> do
+  r = unsafe do sys.syscall1(5, cap) end
+  lythos.check_unit(r)
+end
+
+## Leave the program with an exit status.
+pub exit :: fn(status: i64) do
+  _ = unsafe do sys.syscall1(1, status) end
+  ()
+end
+
+## Give up the rest of this time slice.
+pub yield_now :: fn() do
+  _ = unsafe do sys.syscall0(0) end
+  ()
+end
+
+## Free physical frames (4 KiB each).
+pub free_frames :: fn() -> i64 do
+  unsafe do sys.syscall0(18) end
+end
+
+addr :: fn(s: String) -> i64 do
+  Option.unwrap_or(Num.to_i64(unsafe do mem.addr_of(s) end), 0)
+end
+
+size :: fn(s: String) -> i64 do
+  Option.unwrap_or(Num.to_i64(String.length(s)), 0)
+end
+
+put_caps :: fn(buf: String, caps: [i64], at: usize) do
+  match caps do
+    [] -> ()
+    [c | rest] -> do
+      unsafe do
+        mem.write_u64(Option.unwrap_or(Num.to_usize(addr(buf)), 0) + at, Option.unwrap_or(Num.to_u64(c), 0))
+      end
+      put_caps(buf, rest, at + 8)
+    end
+  end
+end

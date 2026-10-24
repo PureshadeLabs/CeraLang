@@ -1,0 +1,11 @@
+# control2: match arms
+# Book: chapter 5
+
+# Words for small numbers.
+describe :: fn(n: i32) -> String do
+  match n do
+    0 -> "zero"
+    1 -> "one"
+    _ -> "many"
+  end
+end

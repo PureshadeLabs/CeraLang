@@ -1,0 +1,16 @@
+# regions2: Swap the allocator
+# Book: chapter 13
+# I AM NOT DONE
+
+work :: fn() do
+end
+
+main :: fn() do
+  scratch = arena_new(4096)
+  with allocator scratch do
+    work()
+  end
+end
+
+# HINT
+# `allocator` takes its argument in parentheses: `allocator(scratch)`.

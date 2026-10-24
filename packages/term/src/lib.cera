@@ -1,0 +1,196 @@
+## Terminal control for Linux programs: raw mode, window size, keys, output.
+##
+## Written on `std.sys` and `std.mem`, so programs that use it build natively
+## (`kote build`). A text editor or any full-screen program needs only these calls:
+##
+##   t = term.raw()          # Result<Term, Error>; fails if standard input is not a terminal
+##   term.size(t)            # (rows, columns)
+##   term.read_key(t)        # waits for a key, returns a code (see `key_up` and friends)
+##   term.write("\e[2J")     # output in one write
+##   term.restore(t)         # always restore before the program ends
+import std.bits
+import std.mem
+import std.sys
+
+## A terminal in raw mode: the settings to restore and a one-byte read buffer.
+pub Term :: type { saved: String, buffer: usize }
+
+## Key codes above 255; plain keys are their byte value (Ctrl-A is 1, Enter 13, Escape 27).
+pub key_left :: fn() -> i64 do 1000 end
+pub key_right :: fn() -> i64 do 1001 end
+pub key_up :: fn() -> i64 do 1002 end
+pub key_down :: fn() -> i64 do 1003 end
+pub key_delete :: fn() -> i64 do 1004 end
+pub key_home :: fn() -> i64 do 1005 end
+pub key_end :: fn() -> i64 do 1006 end
+pub key_page_up :: fn() -> i64 do 1007 end
+pub key_page_down :: fn() -> i64 do 1008 end
+
+## The code for Ctrl plus a letter given as its number in the alphabet (Ctrl-Q is `ctrl(17)`).
+pub ctrl :: fn(n: i64) -> i64 do
+  n
+end
+
+ioctl :: fn(fd: i64, request: i64, addr: usize) -> i64 do
+  unsafe do
+    sys.syscall3(16, fd, request, Option.unwrap_or(Num.to_i64(addr), 0))
+  end
+end
+
+u32_at :: fn(addr: usize) -> u32 do
+  unsafe do mem.read_u32(addr) end
+end
+
+## Switch standard input to raw mode: no echo, no line buffering, no signals, no output
+## translation, and reads that give up after 100 ms.
+pub raw :: fn() -> Result<Term, Error> do
+  saved = unsafe do mem.buffer(64) end
+  at = unsafe do mem.addr_of(saved) end
+  if ioctl(0, 21505, at) < 0 do
+    Err(Error{message: "standard input is not a terminal"})
+  else
+    original = unsafe do mem.string_from(at, 36) end
+    work = unsafe do mem.alloc(64) end
+    unsafe do
+      mem.copy_to(work, original)
+    end
+    clear_flags(work)
+    unsafe do
+      mem.write_u8(work + 22, 1)
+      mem.write_u8(work + 23, 0)
+    end
+    _ = ioctl(0, 21506, work)
+    buffer = unsafe do mem.alloc(8) end
+    Ok(Term{saved: original, buffer: buffer})
+  end
+end
+
+## c_iflag: BRKINT ICRNL INPCK ISTRIP IXON off. c_oflag: OPOST off. c_cflag: CS8 on.
+## c_lflag: ECHO ICANON IEXTEN ISIG off.
+clear_flags :: fn(w: usize) do
+  unsafe do
+    mem.write_u32(w, bits.band(u32_at(w), bits.bnot(2 + 256 + 16 + 32 + 1024)))
+    mem.write_u32(w + 4, bits.band(u32_at(w + 4), bits.bnot(1)))
+    mem.write_u32(w + 8, bits.bor(u32_at(w + 8), 48))
+    mem.write_u32(w + 12, bits.band(u32_at(w + 12), bits.bnot(8 + 2 + 32768 + 1)))
+  end
+end
+
+## Put the terminal back the way `raw` found it.
+pub restore :: fn(t: Term) do
+  buf = unsafe do mem.alloc(64) end
+  unsafe do
+    mem.copy_to(buf, t.saved)
+  end
+  _ = ioctl(0, 21506, buf)
+  unsafe do
+    mem.free(buf, 64)
+  end
+end
+
+## (rows, columns) of the terminal, or (24, 80) if it cannot tell.
+pub size :: fn(t: Term) -> (i64, i64) do
+  buf = unsafe do mem.alloc(16) end
+  r = ioctl(1, 21523, buf)
+  rows = Option.unwrap_or(Num.to_i64(unsafe do mem.read_u16(buf) end), 0)
+  cols = Option.unwrap_or(Num.to_i64(unsafe do mem.read_u16(buf + 2) end), 0)
+  unsafe do
+    mem.free(buf, 16)
+  end
+  if r < 0 or rows < 1 or cols < 1 do
+    (24, 80)
+  else
+    (rows, cols)
+  end
+end
+
+## Write text to the terminal, retrying until all of it is out.
+pub write :: fn(text: String) do
+  unsafe do
+    addr = Option.unwrap_or(Num.to_i64(mem.addr_of(text)), 0)
+    total = Option.unwrap_or(Num.to_i64(String.length(text)), 0)
+    var done = 0
+    while done < total do
+      n = sys.syscall3(1, 1, addr + done, total - done)
+      if n <= 0 do
+        done := total
+      else
+        done := done + n
+      end
+    end
+  end
+end
+
+## One byte, or -1 if nothing arrived within the read timeout.
+pub read_byte :: fn(t: Term) -> i64 do
+  unsafe do
+    n = sys.syscall3(0, 0, Option.unwrap_or(Num.to_i64(t.buffer), 0), 1)
+    if n == 1 do
+      Option.unwrap_or(Num.to_i64(mem.read_u8(t.buffer)), 0)
+    else
+      0 - 1
+    end
+  end
+end
+
+## Wait for a key. Arrow, Home, End, Delete and Page keys come back as the `key_*` codes.
+pub read_key :: fn(t: Term) -> i64 do
+  c = read_byte(t)
+  if c < 0 do
+    read_key(t)
+  else if c != 27 do
+    c
+  else
+    s0 = read_byte(t)
+    s1 = read_byte(t)
+    if s0 < 0 or s1 < 0 do
+      27
+    else if s0 == 91 do
+      csi(t, s1)
+    else if s0 == 79 do
+      if s1 == 72 do
+        key_home()
+      else if s1 == 70 do
+        key_end()
+      else
+        27
+      end
+    else
+      27
+    end
+  end
+end
+
+csi :: fn(t: Term, s1: i64) -> i64 do
+  if s1 >= 48 and s1 <= 57 do
+    if read_byte(t) != 126 do
+      27
+    else if s1 == 49 or s1 == 55 do
+      key_home()
+    else if s1 == 51 do
+      key_delete()
+    else if s1 == 52 or s1 == 56 do
+      key_end()
+    else if s1 == 53 do
+      key_page_up()
+    else if s1 == 54 do
+      key_page_down()
+    else
+      27
+    end
+  else if s1 == 65 do
+    key_up()
+  else if s1 == 66 do
+    key_down()
+  else if s1 == 67 do
+    key_right()
+  else if s1 == 68 do
+    key_left()
+  else if s1 == 72 do
+    key_home()
+  else if s1 == 70 do
+    key_end()
+  else
+    27
+  end
+end

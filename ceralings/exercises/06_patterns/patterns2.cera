@@ -1,0 +1,14 @@
+# patterns2: List tails
+# Book: chapter 8
+# I AM NOT DONE
+
+describe_list :: fn(xs: [i32]) -> String do
+  match xs do
+    [] -> "empty"
+    [x] -> "one element"
+    [x, y | ] -> "two or more"
+  end
+end
+
+# HINT
+# After the `|` comes a pattern for the rest of the list. Give it a name.

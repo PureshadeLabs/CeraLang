@@ -1,0 +1,9 @@
+# data1: Record literals
+# Book: chapter 6
+
+Point :: type { x: f64, y: f64 }
+
+# Build a record by naming its type and giving field: value pairs.
+origin :: fn() -> Point do
+  Point{x: 0.0, y: 0.0}
+end
