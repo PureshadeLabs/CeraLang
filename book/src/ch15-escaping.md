@@ -1,7 +1,7 @@
 # Moving values out of regions
 
 > **Status:** syntax implemented (`promote` and `new_in` are ordinary calls to
-> compiler-known functions). Checking is designed, not written.
+> compiler-known functions). Escape of a region's value is checked; cross-region mutation is not yet.
 
 A region is a scratchpad, but sometimes the *answer* has to outlive it. This
 chapter is about getting results out on purpose.

@@ -52,7 +52,8 @@
 - A function without a `->` return type has its return type inferred from the
   body, but it is not generalized.
 - Unused or unreachable match arms are not reported yet.
-- The region rule (no outer-to-inner references) is not checked yet.
+- The region checker is partial: a `region` whose value is a heap value built or bound inside it is
+  rejected unless wrapped in `promote`/`new_in`. Cross-region mutation is not checked yet.
 
 ## Known limits of the interpreter
 

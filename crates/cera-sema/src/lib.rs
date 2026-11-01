@@ -9,6 +9,7 @@
 mod check;
 pub mod defs;
 pub mod exhaust;
+mod region;
 pub mod ty;
 
 pub use check::{analyze, stub_functions, Analysis, TypeAt, PRELUDE_LIST};

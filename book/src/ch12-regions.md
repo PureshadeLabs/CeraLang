@@ -1,8 +1,8 @@
 # Regions
 
 > **Status:** native builds rewind the heap at the `end` of a `region` when it is
-> safe to (below). The region checker that would enforce the full rules in this
-> chapter is designed but not written, so other regions behave like plain blocks.
+> safe to (below). The region checker enforces only the escape rule for a
+> region's value (chapter 15); cross-region mutation is designed but not checked.
 
 This chapter is the center of Cera. If you understand regions, you understand
 how Cera manages memory.

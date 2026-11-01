@@ -1617,6 +1617,7 @@ impl<'a> Checker<'a> {
                 self.barriers += 1;
                 let t = self.infer_block(b);
                 self.barriers -= 1;
+                self.check_region_escape(b, &t);
                 t
             }
             ExprKind::While { cond, body } => {
@@ -1687,6 +1688,22 @@ impl<'a> Checker<'a> {
             .with_label("mutable variable used here")
             .with_help(format!("copy it into an immutable binding first, for example `{name}_now = {name}`, and use that"));
         self.diags.push(d);
+    }
+
+    /// Reject a region whose value is a heap value living in that region.
+    fn check_region_escape(&mut self, b: &Block, t: &Ty) {
+        let Some(tail) = crate::region::block_tail(b) else { return };
+        let z = self.zonk(t);
+        if !crate::region::is_heap(&z) {
+            return;
+        }
+        let locals = crate::region::locals(b);
+        if crate::region::lives_in_region(tail, &locals) {
+            let d = Diagnostic::new(tail.span, "value escapes region")
+                .with_label("this value lives in the region that ends here")
+                .with_help("use `promote(v)` or `new_in(parent, v)`");
+            self.diags.push(d);
+        }
     }
 
     fn infer_block(&mut self, b: &Block) -> Ty {

@@ -331,6 +331,17 @@ fn regions_and_allocators() {
 }
 
 #[test]
+fn region_escape_is_rejected() {
+    fails(
+        "f :: fn() -> [i32] do\n  region do\n    temp = [3, 1, 2]\n    temp\n  end\nend\n",
+        "value escapes region",
+    );
+    fails("f :: fn() -> [i32] do\n  region do\n    [1, 2]\n  end\nend\n", "value escapes region");
+    ok("f :: fn() -> [i32] do\n  region do\n    temp = [3, 1, 2]\n    promote(temp)\n  end\nend\n");
+    ok("f :: fn() -> i32 do\n  region do\n    temp = [3, 1, 2]\n    sum(temp)\n  end\nend\n");
+}
+
+#[test]
 fn defer_is_checked() {
     ok("import std.io\nf :: fn() do\n  defer io.println(\"bye\")\n  io.println(\"hi\")\nend\n");
 }

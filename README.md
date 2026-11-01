@@ -43,7 +43,7 @@ around it exist; code generation and the region checker do not yet.
 | `ceralings` exercises (22)             | done (type-checks and runs) |
 | The book (23 chapters, 5 appendices)   | drafted         |
 | Name resolution, type checker, exhaustiveness | done (against std stubs) |
-| Region checker                         | designed        |
+| Region checker                         | partial (escape check on a region's value) |
 | Tree-walking interpreter (`cerac run --tree`) | done (reference) |
 | Bytecode VM (`cerac run`, `cerac dis`) | done            |
 | Native backend (x86-64 Linux ELF, `cerac build`) | done  |
