@@ -17,3 +17,4 @@ ex = {p.stem: p.read_text() for p in sorted(pathlib.Path("examples").glob("*.cer
 pathlib.Path("web/examples.json").write_text(json.dumps(ex))
 PY
 ls -la web/pkg
+python3 tools/bundle-playground.py
