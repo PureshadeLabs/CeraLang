@@ -8,6 +8,7 @@ members = [
     "crates/cerac",
     "crates/kote",
     "crates/cera-lsp",
+    "crates/cera-wasm",
     "crates/ceralings",
 ]
 

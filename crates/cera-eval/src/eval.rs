@@ -13,8 +13,15 @@ use std::rc::Rc;
 
 /// Stack size of the interpreter thread. Non-tail recursion is limited by this
 /// (the interpreter reports a Cera stack overflow before the real one).
+#[cfg(not(target_arch = "wasm32"))]
 pub const STACK_BYTES: usize = 512 << 20;
+#[cfg(not(target_arch = "wasm32"))]
 const STACK_MARGIN: usize = 32 << 20;
+/// The wasm linear-memory stack is set by the linker (see `.cargo/config.toml`).
+#[cfg(target_arch = "wasm32")]
+pub const STACK_BYTES: usize = 16 << 20;
+#[cfg(target_arch = "wasm32")]
+const STACK_MARGIN: usize = 2 << 20;
 
 pub enum Tail<'a> {
     Done(Value<'a>),

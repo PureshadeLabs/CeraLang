@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cera Playground</title>
+<style>
+  :root { color-scheme: dark; --bg:#0e0f12; --panel:#16181d; --line:#2a2d35; --fg:#e6e6e6; --dim:#8b909a; --acc:#6ea8fe; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 ui-monospace,Menlo,Consolas,monospace; display:flex; flex-direction:column; height:100vh; }
+  header { display:flex; gap:8px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0 12px 0 0; }
+  button, select { background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:5px 12px; font:inherit; cursor:pointer; }
+  button:hover, select:hover { border-color:var(--acc); }
+  button.run { background:var(--acc); color:#0b0c0f; border-color:var(--acc); font-weight:600; }
+  main { flex:1; display:grid; grid-template-columns:1fr 1fr; min-height:0; }
+  @media (max-width:800px) { main { grid-template-columns:1fr; grid-template-rows:1fr 1fr; } }
+  .col { display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); }
+  .col:last-child { border-right:0; }
+  label { padding:6px 14px; color:var(--dim); font-size:12px; border-bottom:1px solid var(--line); }
+  textarea, pre { flex:1; margin:0; padding:12px 14px; background:var(--panel); color:var(--fg); border:0; resize:none; font:inherit; outline:none; overflow:auto; white-space:pre; tab-size:2; }
+  #stdin { flex:0 0 70px; border-top:1px solid var(--line); }
+  pre.err { color:#ff8a8a; flex:0 0 auto; max-height:45%; border-top:1px solid var(--line); }
+  pre.err:empty { display:none; }
+  #status { margin-left:auto; color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Cera</h1>
+  <button class="run" id="run">Run</button>
+  <button id="check">Check</button>
+  <button id="fmt">Format</button>
+  <select id="examples"></select>
+  <span id="status">loading wasm...</span>
+</header>
+<main>
+  <div class="col">
+    <label>main.cera (Ctrl/Cmd+Enter to run)</label>
+    <textarea id="src" spellcheck="false"></textarea>
+    <label>stdin</label>
+    <textarea id="stdin" spellcheck="false"></textarea>
+  </div>
+  <div class="col">
+    <label>output</label>
+    <pre id="out"></pre>
+    <pre id="err" class="err"></pre>
+  </div>
+</main>
+<script type="module">
+import init, { run, check, format } from "./pkg/cera_wasm.js";
+const $ = id => document.getElementById(id);
+const status = t => $("status").textContent = t;
+
+let examples = {};
+try { examples = await (await fetch("./examples.json")).json(); } catch {}
+const sel = $("examples");
+for (const name of Object.keys(examples)) sel.add(new Option(name, name));
+const initial = location.hash.slice(1) ? decodeURIComponent(atob(location.hash.slice(1))) : null;
+$("src").value = initial ?? examples.hello ?? 'import std.io\n\nmain :: fn() do\n  io.println("Hello, world!")\nend\n';
+sel.value = examples.hello ? "hello" : "";
+sel.onchange = () => { $("src").value = examples[sel.value]; $("out").textContent = $("err").textContent = ""; };
+
+await init();
+status("ready");
+
+function show(out, err) { $("out").textContent = out; $("err").textContent = err; }
+function share() { try { history.replaceState(null, "", "#" + btoa(encodeURIComponent($("src").value))); } catch {} }
+
+$("run").onclick = () => {
+  const t = performance.now();
+  const r = run($("src").value, $("stdin").value);
+  show(r.out, r.err);
+  status(`${r.ok ? "exit " + r.code : "failed"} in ${(performance.now() - t).toFixed(0)} ms`);
+  share();
+};
+$("check").onclick = () => {
+  const d = check($("src").value);
+  show("", d);
+  status(d ? "errors" : "no errors");
+};
+$("fmt").onclick = () => {
+  const f = format($("src").value);
+  if (f.startsWith("error: ")) { show("", f); status("format failed"); }
+  else { $("src").value = f; status("formatted"); }
+};
+addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("run").click(); } });
+</script>
+</body>
+</html>

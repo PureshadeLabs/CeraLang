@@ -1,0 +1,16 @@
+[package]
+name = "cera-wasm"
+description = "Cera in the browser: parse, check, format and run via WebAssembly"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cera-syntax = { path = "../cera-syntax" }
+cera-sema = { path = "../cera-sema" }
+cera-eval = { path = "../cera-eval" }
+wasm-bindgen = "0.2.130"

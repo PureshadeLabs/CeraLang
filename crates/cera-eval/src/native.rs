@@ -1179,6 +1179,9 @@ pub fn call_native<'a, R: Rt<'a> + ?Sized>(rt: &R, name: &str, args: Vec<Value<'
             if !matches!(cap(&a[0], short, span)?, CapVal::Clock) {
                 return rt_err(span, "`now_ms` needs a Clock capability");
             }
+            #[cfg(target_arch = "wasm32")]
+            let ms = js_sys::Date::now() as i128;
+            #[cfg(not(target_arch = "wasm32"))]
             let ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis() as i128)
@@ -1191,6 +1194,13 @@ pub fn call_native<'a, R: Rt<'a> + ?Sized>(rt: &R, name: &str, args: Vec<Value<'
             }
             let ms = int(a, 1, short, span)?;
             let _ = host.out.borrow_mut().flush();
+            #[cfg(target_arch = "wasm32")]
+            {
+                // No sleep primitive on wasm: spin on the JS clock.
+                let end = js_sys::Date::now() + ms.max(0) as f64;
+                while js_sys::Date::now() < end {}
+            }
+            #[cfg(not(target_arch = "wasm32"))]
             std::thread::sleep(std::time::Duration::from_millis(ms.max(0) as u64));
             Value::Unit
         }

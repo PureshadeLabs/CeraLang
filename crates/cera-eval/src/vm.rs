@@ -17,7 +17,10 @@ use std::io::Write;
 use std::rc::Rc;
 
 const MAX_FRAMES: usize = 400_000;
+#[cfg(not(target_arch = "wasm32"))]
 const STACK_MARGIN: usize = 32 << 20;
+#[cfg(target_arch = "wasm32")]
+const STACK_MARGIN: usize = 2 << 20;
 const OVERFLOW: &str = "stack overflow: recursion is too deep (only tail calls are free)";
 
 type V = Value<'static>;

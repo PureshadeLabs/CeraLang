@@ -113,6 +113,19 @@ pub fn run_program(
     config: RunConfig,
     engine: Engine,
 ) -> Result<i32, RunError> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        // No threads on wasm: run on the caller's stack.
+        return match engine {
+            Engine::Tree => eval::Interp::new(program, analysis, config.into_host()).run_main(),
+            Engine::Vm => {
+                let bc = compile::compile(program, analysis);
+                vm::Vm::new(bc, config.into_host()).run_main()
+            }
+        }
+        .map_err(RunError::Runtime);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     std::thread::scope(|s| {
         std::thread::Builder::new()
             .stack_size(eval::STACK_BYTES)
